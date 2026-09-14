@@ -1,0 +1,7 @@
+node_modules/
+dist/
+tests/
+redesign-example/
+Qwen_html_*.html
+Запуск_приложения.bat
+*.log

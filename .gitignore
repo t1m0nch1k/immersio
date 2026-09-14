@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules/
+dist/
+.vercel/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and local tooling
+*.log
+coverage/
+.DS_Store
+Thumbs.db
+
+# Temporary editor/system files
+.idea/
+.vscode/
+*.swp
