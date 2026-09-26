@@ -97,10 +97,14 @@ export const Header: React.FC<HeaderProps> = ({
         <span className="logotext">ПОГРУЖЕНИЕ</span>
       </button>
 
-      <div className="hspace"></div>
-
-      {/* Language picker button */}
-      <div style={{ position: 'relative' }} ref={langPickerRef}>
+      {/*
+        One flex-1 group with space-evenly, instead of a flex:1 spacer followed
+        by a pile of controls: the row now spans the full header width and the
+        gaps come out equal on both screens.
+      */}
+      <div className="hgroup">
+        {/* Language picker button */}
+        <div style={{ position: 'relative' }} ref={langPickerRef}>
         <button
           ref={langButtonRef}
           type="button"
@@ -216,6 +220,7 @@ export const Header: React.FC<HeaderProps> = ({
           Войти
         </button>
       )}
+      </div>
     </header>
   );
 };

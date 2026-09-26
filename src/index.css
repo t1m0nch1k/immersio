@@ -290,6 +290,20 @@ header {
   flex-shrink: 0;
 }
 
+/* Everything to the right of the logo. It takes the remaining width and spaces
+   its children evenly, which is what makes the row span the full header
+   instead of leaving a gap next to the brand. */
+.hgroup {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 6px;
+}
+
+.hgroup > * { flex-shrink: 0; }
+
 .mark {
   width: 34px;
   height: 34px;
@@ -315,10 +329,6 @@ header {
 
 .logo:hover .mark {
   transform: rotate(-10deg) scale(1.08);
-}
-
-.hspace {
-  flex: 1;
 }
 
 .hchip {
