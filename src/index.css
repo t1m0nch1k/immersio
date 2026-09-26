@@ -316,6 +316,14 @@ header {
   transform: rotate(-10deg) scale(1.08);
 }
 
+.drawer-brand:hover .mark {
+  transform: rotate(-10deg) scale(1.08);
+}
+
+.logo:hover .mark {
+  transform: rotate(-10deg) scale(1.08);
+}
+
 .hspace {
   flex: 1;
 }

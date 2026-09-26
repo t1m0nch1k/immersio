@@ -70,10 +70,10 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header>
       {/*
-        The logo is the menu trigger. A separate burger button next to it cost
-        another 36px in a header that was already the widest part of the phone
-        layout, and the wordmark is hidden there anyway, leaving a lone icon
-        doing two jobs.
+        The menu trigger lives inside the logo rather than beside it: a separate
+        burger button cost another 36px in a header that was already the widest
+        part of the phone layout. The wave mark stays, so the brand is still
+        visible, and the whole cluster is one control.
       */}
       <button
         type="button"
@@ -89,6 +89,13 @@ export const Header: React.FC<HeaderProps> = ({
         <svg className="logoburger" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true" focusable="false">
           <path d="M4 7h16M4 12h16M4 17h16" />
         </svg>
+        <span className="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" focusable="false">
+            <path d="M2 8c3-3 5 3 8 0s5 3 8 0" />
+            <path d="M2 13c3-3 5 3 8 0s5 3 8 0" />
+            <path d="M2 18c3-3 5 3 8 0s5 3 8 0" />
+          </svg>
+        </span>
         <span className="logotext">ПОГРУЖЕНИЕ</span>
       </button>
 
