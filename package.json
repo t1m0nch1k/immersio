@@ -10,6 +10,7 @@
     "test:grammar": "node tests/grammar.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:android-web": "node scripts/build-android-web.mjs",
     "lint": "tsc --noEmit",
     "preview": "vite preview"
   },

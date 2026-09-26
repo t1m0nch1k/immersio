@@ -127,7 +127,7 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
 
       {/* Editor Form */}
       <div className="card" style={{ marginTop: '20px' }}>
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+        <div className="custom-title-row" style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
           <input
             type="text"
             placeholder="Эмодзи"
@@ -143,7 +143,7 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
               setTitle(e.target.value);
               setError('');
             }}
-            style={{ flex: 1, padding: '12px 16px', fontSize: '16px', fontWeight: 700, border: '2px solid var(--ink)', borderRadius: '12px', background: 'var(--card)' }}
+            style={{ flex: 1, minWidth: 0, padding: '12px 16px', fontSize: '16px', fontWeight: 700, border: '2px solid var(--ink)', borderRadius: '12px', background: 'var(--card)' }}
           />
         </div>
 
@@ -161,7 +161,7 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
 
         {error && <div className="errorbox" role="alert">{error}</div>}
 
-        <div style={{ display: 'flex', gap: '12px', marginTop: '18px', justifyContent: 'flex-end' }}>
+        <div className="custom-actions" style={{ display: 'flex', gap: '12px', marginTop: '18px', justifyContent: 'flex-end' }}>
           <button className="btn ghost" onClick={() => onNavigate('lessons')}>
             Отмена
           </button>

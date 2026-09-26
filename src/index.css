@@ -28,6 +28,96 @@
   .grammar-token-zone { padding: 10px; gap: 8px; }
 }
 
+/* Virtual language keyboard */
+.virtual-keyboard {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.virtual-keyboard-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.virtual-keyboard-toggle:hover { background: var(--sun); }
+.virtual-keyboard-toggle-state { margin-left: auto; color: var(--ink2); font-size: 12px; }
+
+.virtual-keyboard-panel {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.virtual-keyboard-hint { color: var(--ink2); font-size: 12px; line-height: 1.45; }
+.virtual-keyboard-rows { display: grid; gap: 6px; }
+.virtual-keyboard-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+
+.virtual-key {
+  min-width: 34px;
+  min-height: 36px;
+  flex: 1 1 34px;
+  padding: 5px 8px;
+  border: 2px solid var(--ink);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
+  cursor: pointer;
+  font: 800 15px/1.1 'Golos Text', system-ui, sans-serif;
+  transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
+}
+
+.virtual-key:hover:not(:disabled) { transform: translateY(-2px); background: var(--sun); }
+.virtual-key:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.virtual-key:disabled { opacity: .42; cursor: not-allowed; }
+.virtual-key-action { flex: 1.4 1 92px; font-size: 12px; }
+.virtual-key-action.is-active { background: var(--sun); }
+.virtual-key-space { flex: 3 1 150px; }
+
+.alphabet-keyboard-card { display: grid; gap: 16px; margin: 24px 0; }
+.alphabet-keyboard-card .section-heading { margin-bottom: 0; }
+.alphabet-keyboard-input-row { display: flex; align-items: center; gap: 10px; }
+.alphabet-keyboard-input {
+  width: 100%;
+  min-width: 0;
+  padding: 13px 15px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font: 600 20px/1.3 inherit;
+}
+
+.alphabet-keyboard-input:focus-visible,
+.virtual-keyboard-toggle:focus-visible,
+.virtual-key:focus-visible { outline: 3px solid var(--sea); outline-offset: 3px; }
+
+@media (max-width: 600px) {
+  .virtual-keyboard-panel { padding: 9px; }
+  .virtual-key { min-width: 29px; min-height: 34px; padding: 4px 5px; font-size: 13px; }
+  .virtual-key-action { flex-basis: 78px; }
+  .virtual-key-space { flex-basis: 110px; }
+  .alphabet-keyboard-input-row { align-items: stretch; }
+  .alphabet-keyboard-input { font-size: 17px; }
+}
+
 /* ---------- Design System & CSS Variables ---------- */
 :root {
   --paper: #f5f1e6;

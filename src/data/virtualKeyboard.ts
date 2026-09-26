@@ -1,0 +1,59 @@
+import { LanguageCode } from '../types';
+
+export interface VirtualKeyboardLayout {
+  rows: string[][];
+  hasCase: boolean;
+}
+
+/**
+ * Compact layouts for the characters learners need most often.
+ * The browser's physical keyboard is still available; this is an on-screen
+ * helper for phones, tablets and characters that are missing from the user's
+ * usual layout.
+ */
+export const VIRTUAL_KEYBOARDS: Record<LanguageCode, VirtualKeyboardLayout> = {
+  en: {
+    rows: [['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'], ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'], ['z', 'x', 'c', 'v', 'b', 'n', 'm']],
+    hasCase: true,
+  },
+  es: {
+    rows: [['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'], ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ñ'], ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'á', 'é', 'í', 'ó', 'ú', 'ü', '¿', '¡']],
+    hasCase: true,
+  },
+  de: {
+    rows: [['q', 'w', 'e', 'r', 't', 'z', 'u', 'i', 'o', 'p', 'ü'], ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ö', 'ä'], ['y', 'x', 'c', 'v', 'b', 'n', 'm', 'ß']],
+    hasCase: true,
+  },
+  fr: {
+    rows: [['a', 'z', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'], ['q', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'ù'], ['w', 'x', 'c', 'v', 'b', 'n', 'é', 'è', 'ê', 'à', 'ç', 'œ']],
+    hasCase: true,
+  },
+  it: {
+    rows: [['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'], ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'], ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'à', 'è', 'é', 'ì', 'ò', 'ù']],
+    hasCase: true,
+  },
+  ja: {
+    rows: [
+      ['あ', 'い', 'う', 'え', 'お'],
+      ['か', 'き', 'く', 'け', 'こ'],
+      ['さ', 'し', 'す', 'せ', 'そ'],
+      ['た', 'ち', 'つ', 'て', 'と'],
+      ['な', 'に', 'ぬ', 'ね', 'の'],
+      ['は', 'ひ', 'ふ', 'へ', 'ほ'],
+      ['ま', 'み', 'む', 'め', 'も'],
+      ['や', 'ゆ', 'よ'],
+      ['ら', 'り', 'る', 'れ', 'ろ'],
+      ['わ', 'を', 'ん', 'っ', '、', '。'],
+      ['です', 'ます', 'でした', 'ません', '？'],
+    ],
+    hasCase: false,
+  },
+  sk: {
+    rows: [['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'], ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ô', 'ä'], ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'á', 'é', 'í', 'ó', 'ú', 'ý', 'ď', 'ň', 'ľ', 'ĺ', 'ŕ', 'š', 'ť', 'ž']],
+    hasCase: true,
+  },
+  cs: {
+    rows: [['q', 'w', 'e', 'r', 't', 'z', 'u', 'i', 'o', 'p', 'ú'], ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ů'], ['y', 'x', 'c', 'v', 'b', 'n', 'm', 'á', 'é', 'í', 'ó', 'ý', 'č', 'ď', 'ě', 'ň', 'ř', 'š', 'ť', 'ž']],
+    hasCase: true,
+  },
+};

@@ -3,6 +3,7 @@ import { GrammarLesson, UserState } from '../types';
 import { audioService } from '../services/audioService';
 import { StorageService } from '../services/storageService';
 import { buildGrammarExercises, checkGrammarAnswer, recordGrammarAnswer, shuffledTokenIndices } from '../services/grammarService';
+import { VirtualKeyboard } from './VirtualKeyboard';
 
 interface Props {
   lesson: GrammarLesson;
@@ -93,10 +94,13 @@ export function GrammarTrainer({ lesson, userState, onUpdateState, onClose }: Pr
             disabled={selected.includes(tokenIndex) || !!feedback}
             onClick={() => setSelected([...selected, tokenIndex])}>{exercise.tokens[tokenIndex]}</button>)}
         </div>
-      </> : <label className="grammar-answer">{exercise.mode === 'gap' ? 'Недостающая часть' : 'Твой ответ'}
-        <input lang={lang} value={input} onChange={(event) => setInput(event.target.value)} disabled={!!feedback}
-          autoComplete="off" autoCapitalize="off" spellCheck={false} aria-describedby="grammar-feedback" />
-      </label>}
+      </> : <>
+        <label className="grammar-answer">{exercise.mode === 'gap' ? 'Недостающая часть' : 'Твой ответ'}
+          <input lang={lang} value={input} onChange={(event) => setInput(event.target.value)} disabled={!!feedback}
+            autoComplete="off" autoCapitalize="off" spellCheck={false} aria-describedby="grammar-feedback" />
+        </label>
+        <VirtualKeyboard lang={lang} value={input} onChange={setInput} disabled={!!feedback} />
+      </>}
       <div className="grammar-toolbar">
         <button type="submit" className="btn sun" disabled={!!feedback || (exercise.mode === 'build' ? selected.length !== exercise.tokens.length : !input.trim())}>Проверить</button>
         <button type="button" className="btn" disabled={!!feedback} onClick={() => {

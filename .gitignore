@@ -18,3 +18,10 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Android project
+android/.gradle/
+android/local.properties
+android/**/build/
+android/.kotlin/
+android/app/src/main/assets/www/

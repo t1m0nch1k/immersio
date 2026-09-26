@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { ALPHABETS } from '../data/alphabet';
 import { audioService } from '../services/audioService';
+import { VirtualKeyboard } from './VirtualKeyboard';
 
 interface AlphabetViewProps {
   userState: UserState;
@@ -13,7 +14,12 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
   const currentLang = userState.currentLang;
   const language = LANGUAGES[currentLang] || LANGUAGES.en;
   const alphabet = ALPHABETS[currentLang] || ALPHABETS.en;
+  const [keyboardText, setKeyboardText] = useState('');
   let letterIndex = 0;
+
+  useEffect(() => {
+    setKeyboardText('');
+  }, [currentLang]);
 
   return (
     <div className="view">
@@ -25,6 +31,39 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
         <button className="btn sun" onClick={() => onNavigate('grammar')}>🧠 Грамматика</button>
         <button className="btn" onClick={() => onNavigate('dict-all')}>📚 Открыть словарь всех слов</button>
       </div>
+
+      <section className="card alphabet-keyboard-card">
+        <div className="section-heading">
+          <div>
+            <div className="overline">попробуй сам</div>
+            <h2>Набери слово на {language.name}</h2>
+          </div>
+          <p>Клавиатура помогает найти буквы с диакритикой и японскую хирагану. Этот ввод не меняет прогресс.</p>
+        </div>
+        <div className="alphabet-keyboard-input-row">
+          <input
+            className="alphabet-keyboard-input"
+            lang={currentLang}
+            value={keyboardText}
+            onChange={(event) => setKeyboardText(event.target.value)}
+            placeholder={currentLang === 'ja' ? 'Например: こんにちは' : 'Например: слово с новой буквой'}
+            autoComplete="off"
+            spellCheck={false}
+            aria-label={`Пробное поле для ${language.name}`}
+          />
+          <button
+            type="button"
+            className="iconbtn"
+            disabled={!keyboardText}
+            onClick={() => audioService.speak(keyboardText, currentLang)}
+            aria-label="Произнести набранный текст"
+            title="Произнести набранный текст"
+          >
+            🔊
+          </button>
+        </div>
+        <VirtualKeyboard lang={currentLang} value={keyboardText} onChange={setKeyboardText} defaultOpen />
+      </section>
 
       {alphabet.groups.map((group) => (
         <section className="alphabet-section" key={group.title}>
