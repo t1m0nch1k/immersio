@@ -70,10 +70,10 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header>
       {/*
-        The menu trigger lives inside the logo rather than beside it: a separate
-        burger button cost another 36px in a header that was already the widest
-        part of the phone layout. The wave mark stays, so the brand is still
-        visible, and the whole cluster is one control.
+        The logo is the only control and it opens the menu. A separate burger
+        button cost another 36px in a header that was already the widest part of
+        the phone layout, and a burger drawn next to the brand read as two
+        things to tap.
       */}
       <button
         type="button"
@@ -84,11 +84,9 @@ export const Header: React.FC<HeaderProps> = ({
         }}
         title="Меню"
         aria-label="Открыть меню разделов"
+        aria-haspopup="true"
         style={{ background: 'none', border: 0, color: 'inherit' }}
       >
-        <svg className="logoburger" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true" focusable="false">
-          <path d="M4 7h16M4 12h16M4 17h16" />
-        </svg>
         <span className="mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" focusable="false">
             <path d="M2 8c3-3 5 3 8 0s5 3 8 0" />
