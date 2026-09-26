@@ -1,4 +1,4 @@
-/* Grammar practice */
+﻿/* Grammar practice */
 .grammar-workbench { display: grid; gap: 20px; padding: clamp(18px, 4vw, 36px); margin-bottom: 24px; }
 .grammar-workbench p { line-height: 1.7; }
 .grammar-workbench h2 { font-size: clamp(24px, 4vw, 34px); overflow-wrap: anywhere; }
@@ -261,12 +261,19 @@ header {
   z-index: 50;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
+  gap: 8px;
+  padding: 8px 16px;
   background: var(--pine);
   color: #f3efe2;
   border-bottom: 3px solid var(--ink);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* The wordmark is dropped on a phone: the burger glyph alone identifies the
+   control, and the nine destinations live in the drawer. */
+@media (max-width: 920px) {
+  .logo .logotext { display: none; }
+  .logo { padding: 0; }
 }
 
 .logo {
@@ -279,21 +286,31 @@ header {
   letter-spacing: 0.08em;
   cursor: pointer;
   user-select: none;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.logoburger {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: block;
 }
 
 .mark {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   background: var(--sun);
   border: 2px solid var(--ink);
   box-shadow: 0 3px 0 var(--ink);
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   color: #1b2a23;
 }
+
+.mark svg { width: 19px; height: 19px; }
 
 .logo:hover .mark {
   transform: rotate(-10deg) scale(1.08);
@@ -411,18 +428,123 @@ header {
   margin: 28px auto;
   padding: 0 20px;
   position: relative;
-  z-index: 1;
+  /* No z-index on purpose. A stacking context here would trap the drawer at
+     z-index 90 inside it and the sticky header (50) would paint over the whole
+     overlay. Paint order alone already keeps the shell above #bgletters, which
+     is z-index 0 and pointer-events: none. */
 }
 
-aside {
+/* Drawer / desktop column
+   `aside` is a permanent 260px column on a wide screen and an overlay drawer on
+   a phone. One component, two presentations, so the nine destinations only
+   exist once. */
+.drawer {
   width: 260px;
   flex-shrink: 0;
   position: sticky;
-  top: 90px;
+  top: 74px;
   align-self: flex-start;
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+/* The wave mark left the header when the logo became the menu trigger, so the
+   brand now heads the drawer instead. */
+.drawer-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--ink2);
+}
+
+.drawer-backdrop { display: none; }
+
+@media (max-width: 920px) {
+  .drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    top: 0;
+    z-index: 90;
+    width: min(300px, 84vw);
+    padding: 16px 14px calc(20px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    background: var(--card);
+    border-right: 3px solid var(--ink);
+    box-shadow: 8px 0 0 rgba(0, 0, 0, 0.18);
+    transform: translateX(-105%);
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    visibility: hidden;
+  }
+
+  .drawer.open { transform: translateX(0); visibility: visible; }
+
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    background: rgba(12, 20, 16, 0.5);
+    animation: fade-in 0.2s ease;
+  }
+
+  .drawer .nitem { min-height: 46px; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.avatarbtn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  font-size: 22px;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.avatarbtn img { width: 100%; height: 100%; object-fit: cover; }
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+.avatar-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 14px;
+}
+
+.avatar-upload .dim { flex: 1 1 220px; font-size: 12px; color: var(--ink2); }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 main {
@@ -2407,63 +2529,12 @@ nav.side {
 .listening-method-steps b { color: var(--coral); font: 800 12px 'JetBrains Mono', monospace; }
 .listening-method-steps span { font-size: 13px; line-height: 1.45; font-weight: 700; }
 
-/* Mobile Bar Navigation */
-.mbar {
-  display: none;
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 60;
-  background: var(--pine);
-  border-top: 3px solid var(--ink);
-  padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
-  justify-content: space-around;
-  /* Nine destinations do not fit a 320dp bar next to each other, so the bar
-     scrolls horizontally instead of clipping labels. */
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-.mbar::-webkit-scrollbar { display: none; }
-
-.mbar button {
-  background: none;
-  border: 0;
-  color: #f3efe2;
-  font-weight: 800;
-  font-size: 11px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 12px;
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-.mbar button svg {
-  width: 22px;
-  height: 22px;
-}
-
-.mbar button.active {
-  background: rgba(255, 255, 255, 0.16);
-  color: var(--sun);
-}
-
 @media (max-width: 920px) {
-  aside { display: none; }
-  .mbar { display: flex; }
-  .shell { padding-bottom: 86px; }
+  .shell { padding-bottom: 24px; }
   .stats { grid-template-columns: 1fr 1fr; }
   .avgrid { grid-template-columns: repeat(6, 1fr); }
   .opts { grid-template-columns: 1fr; }
   .hchip.xp { display: none; }
-  .mbar button { padding-left: 7px; padding-right: 7px; font-size: 10px; }
   .section-heading { align-items: start; flex-direction: column; gap: 8px; }
   .section-heading p { text-align: left; }
   .grammar-tip, .alphabet-footer { align-items: flex-start; flex-wrap: wrap; }

@@ -1,4 +1,4 @@
-package ru.pogruzhenie.app
+﻿package ru.pogruzhenie.app
 
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
@@ -21,6 +21,7 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.webkit.ValueCallback
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
@@ -43,6 +44,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var controller: WindowInsetsControllerCompat
     private var tts: TextToSpeech? = null
     private var isDarkTheme = false
+    private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
 
     private val appHost = "appassets.androidplatform.net"
     private val startUrl = "https://$appHost/assets/www/index.html"
@@ -211,6 +213,35 @@ class MainActivity : ComponentActivity() {
                 if (newProgress >= 100) hideError()
             }
 
+            /**
+             * A WebView swallows `<input type="file">` unless the host forwards
+             * it to a picker, so the profile photo button did nothing at all
+             * before this. Uses the photo picker on API 33+ and falls back to
+             * `ACTION_GET_CONTENT`, which needs no storage permission.
+             */
+            override fun onShowFileChooser(
+                webView: WebView,
+                filePathCallback: ValueCallback<Array<Uri>>,
+                fileChooserParams: FileChooserParams
+            ): Boolean {
+                pendingFileCallback?.onReceiveValue(null)
+                pendingFileCallback = filePathCallback
+
+                return try {
+                    startActivityForResult(
+                        fileChooserParams.createIntent(),
+                        FILE_CHOOSER_REQUEST
+                    )
+                    true
+                } catch (error: ActivityNotFoundException) {
+                    Log.w(TAG, "No file picker available", error)
+                    pendingFileCallback = null
+                    filePathCallback.onReceiveValue(null)
+                    false
+                }
+
+            }
+
             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
                 val line = "${message.sourceId()}:${message.lineNumber()} ${message.message()}"
                 when (message.messageLevel()) {
@@ -302,6 +333,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode != FILE_CHOOSER_REQUEST) {
+            super.onActivityResult(requestCode, resultCode, data)
+            return
+        }
+        val callback = pendingFileCallback
+        pendingFileCallback = null
+        if (callback == null) return
+        callback.onReceiveValue(
+            if (resultCode == RESULT_OK) {
+                WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+            } else {
+                null
+            }
+        )
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         webView.saveState(outState)
         super.onSaveInstanceState(outState)
@@ -366,6 +414,7 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val TAG = "Pogruzhenie"
+        const val FILE_CHOOSER_REQUEST = 4711
 
         /**
          * `WebSettings.MIXED_CONTENT_NEVER_ALLOW` by value. The bundle is served

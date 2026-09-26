@@ -2,6 +2,7 @@ import { DailyActivity, LanguageCode, Lesson, SRSItem, StudyTask, TextPiece, Use
 import { ACHIEVEMENTS } from '../data/achievements';
 import { audioService } from './audioService';
 import { isLegacyPasswordHash, isStoredPasswordHash } from './passwordHash';
+import { isValidAvatar } from '../utils/avatar';
 
 const STORAGE_KEY = 'pogruzhenie_v2';
 const SUPPORTED_LANGUAGES: LanguageCode[] = ['en', 'es', 'de', 'fr', 'it', 'ja', 'sk', 'cs'];
@@ -263,7 +264,7 @@ export class StorageService {
       return {
         onboarded: isOnboarded,
         name: typeof parsed.name === 'string' ? parsed.name : initial.name,
-        avatar: isNonEmptyString(parsed.avatar) ? parsed.avatar : initial.avatar,
+        avatar: isValidAvatar(parsed.avatar) ? parsed.avatar : initial.avatar,
         currentLang: typeof storedLang === 'string' && (SUPPORTED_LANGUAGES as string[]).includes(storedLang)
           ? storedLang as LanguageCode
           : initial.currentLang,

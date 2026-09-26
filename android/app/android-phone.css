@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Phone sizing for the packaged site.
  *
  * The site's colours, components and learning logic stay unchanged: this file
@@ -15,20 +15,18 @@
   header {
     box-sizing: border-box;
     width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(3, max-content);
+    display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 8px 12px 10px;
+    gap: 6px;
+    padding: 6px 10px 8px;
   }
-  header .logo { grid-column: 1 / -1; min-width: 0; white-space: nowrap; font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+  header .logo { flex-shrink: 0; }
+  .drawer .drawer-brand { font-size: 12px; }
   header .hspace, header .hchip.xp { display: none; }
-  header > div[style*="position: relative"] { grid-column: 1; justify-self: start; }
-  header .hchip { min-height: 38px; padding: 7px 10px; gap: 5px; }
   header .hmenu { left: 0; right: auto; max-width: calc(100vw - 24px); }
-  header > .iconbtn { width: 38px !important; height: 38px !important; flex-shrink: 0; }
-  header > .btn.small, header > #avbtn { flex-shrink: 0; }
-  header > .btn.small { min-height: 38px; padding: 7px 10px; font-size: 12px; }
+  header > .iconbtn { width: 36px !important; height: 36px !important; flex-shrink: 0; }
+  header > .btn.small, header > #avbtn, header > .avatarbtn { flex-shrink: 0; }
+  header > .btn.small { min-height: 36px; padding: 6px 12px; font-size: 12px; }
 
   .ovl {
     display: flex;
@@ -55,21 +53,18 @@
   .lcard { min-width: 0; padding: 8px 4px; }
   .lcard b, .lcard small { overflow-wrap: anywhere; }
 
-  .shell { box-sizing: border-box; width: 100%; padding: 0 12px 92px; margin: 16px auto 0; }
+  .shell { box-sizing: border-box; width: 100%; padding: 0 12px 32px; margin: 14px auto 0; }
   main, .view { width: 100%; min-width: 0; max-width: 100%; }
   .card { max-width: 100%; box-sizing: border-box; }
-  .mbar { justify-content: flex-start; }
-  .mbar button { min-width: 62px; padding: 6px 4px; }
 
   /* --- Word card popup -------------------------------------------------- */
   /* The shell anchors it to the bottom, which means the JavaScript placement
-     is dead weight here. The offset tracks the real height of the bar plus
-     its own bottom padding instead of a guessed pixel value. */
+     is dead weight here. The offset clears the drawer trigger area. */
   .wcard {
     left: 12px !important;
     right: 12px;
     top: auto !important;
-    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    bottom: 16px;
     width: auto;
     max-height: 55vh;
     max-height: 55dvh;
@@ -138,12 +133,12 @@
   .listening-session-head { flex-wrap: wrap; }
 }
 
-/* Very narrow phones: the bottom bar holds nine destinations, so once the
-   labels stop fitting there is nothing to gain from holding the width. */
+/* Very narrow phones. The nine destinations live in the drawer now, so the only
+   thing that has to keep fitting is the header row. */
 @media (max-width: 360px) {
-  .mbar button { min-width: 56px; padding: 6px 2px; font-size: 9px; }
-  .mbar button svg { width: 20px; height: 20px; }
-  .wcard { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  header { gap: 5px; padding: 5px 8px 6px; }
+  header .hchip { min-height: 34px; padding: 5px 8px; font-size: 12px; }
+  header > .iconbtn { width: 34px !important; height: 34px !important; }
 }
 
 /* Landscape phones are short, not narrow: the vertical budget is the scarce one. */

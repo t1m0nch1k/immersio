@@ -7,6 +7,8 @@ import { StorageService, getLocalDateKey } from '../services/storageService';
 import { audioService } from '../services/audioService';
 import { AVATARS, LANGUAGE_CODES, LEVEL_LABELS } from '../utils';
 import { WORDS_BY_LEVEL } from '../utils/words';
+import { fileToAvatarDataUrl, isAvatarPhoto } from '../utils/avatar';
+import { toastService } from '../services/toastService';
 
 interface ProfileViewProps {
   userState: UserState;
@@ -65,8 +67,13 @@ const ProfileHeader = React.memo<{
       {/* Header Profile Card */}
       <div className="card phead" style={{ marginTop: '18px' }}>
         <div className="avatar" style={{ position: 'relative' }}>
-          {userState.avatar}
+          {isAvatarPhoto(userState.avatar) ? (
+            <img src={userState.avatar} alt="Аватар" />
+          ) : (
+            userState.avatar
+          )}
         </div>
+
 
         <div style={{ flex: 1, minWidth: '240px' }}>
           <div className="pname">
@@ -238,15 +245,37 @@ AchievementsGrid.displayName = 'AchievementsGrid';
 const SettingsPanel = React.memo<{
   userState: UserState;
   onSelectAvatar: (avatar: string) => void;
+  onPickPhoto: (file: File | null, input: HTMLInputElement) => void;
+  onClearPhoto: () => void;
+
   onSelectLang: (code: LanguageCode) => void;
   onRetakeTest: () => void;
   onResetProgress: () => void;
-}>(({ userState, onSelectAvatar, onSelectLang, onRetakeTest, onResetProgress }) => (
+}>(({ userState, onSelectAvatar, onPickPhoto, onClearPhoto, onSelectLang, onRetakeTest, onResetProgress }) => (
   <div className="card" style={{ marginTop: '16px' }}>
     <h3 style={{ fontSize: '16px', marginBottom: '12px' }}>Настройки профиля</h3>
 
     <div className="overline" style={{ marginTop: '8px' }}>
       Аватар
+    </div>
+    <div className="avatar-upload">
+      <label className="btn small">
+        📷 Своё фото
+        <input
+          type="file"
+          accept="image/*"
+          className="visually-hidden"
+          onChange={(event) => onPickPhoto(event.target.files?.[0] ?? null, event.target)}
+        />
+      </label>
+      {isAvatarPhoto(userState.avatar) && (
+        <button type="button" className="btn small" onClick={onClearPhoto}>
+          Убрать фото
+        </button>
+      )}
+      <small className="dim">
+        Фото обрезается в круг и хранится только на этом устройстве. Снимите его при дневном свете.
+      </small>
     </div>
     <div className="avgrid">
       {AVATARS.map((av) => (
@@ -255,11 +284,13 @@ const SettingsPanel = React.memo<{
           type="button"
           className={`av ${av === userState.avatar ? 'cur' : ''}`}
           onClick={() => onSelectAvatar(av)}
+          aria-label={`Аватар ${av}`}
         >
           {av}
         </button>
       ))}
     </div>
+
 
     <div className="overline" style={{ marginTop: '16px' }}>
       Изучаемый язык
@@ -327,6 +358,33 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     StorageService.save(userState);
     onUpdateState({ ...userState });
   }, [userState, onUpdateState]);
+
+  const handlePickPhoto = useCallback((file: File | null, input: HTMLInputElement) => {
+    if (!file) return;
+    fileToAvatarDataUrl(file)
+      .then((dataUrl) => {
+        audioService.playSuccess();
+        userState.avatar = dataUrl;
+        StorageService.save(userState);
+        onUpdateState({ ...userState });
+      })
+      .catch((error: Error) => {
+        audioService.playError();
+        toastService.show(`Не удалось загрузить фото: ${error.message}`);
+      })
+      // Reset the input so picking the same file twice still fires onChange.
+      .finally(() => {
+        input.value = '';
+      });
+  }, [userState, onUpdateState]);
+
+  const handleClearPhoto = useCallback(() => {
+    audioService.playClick();
+    userState.avatar = AVATARS[0];
+    StorageService.save(userState);
+    onUpdateState({ ...userState });
+  }, [userState, onUpdateState]);
+
 
   const handleSelectLang = useCallback((code: LanguageCode) => {
     audioService.playClick();
@@ -420,6 +478,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <SettingsPanel
         userState={userState}
         onSelectAvatar={handleSelectAvatar}
+        onPickPhoto={handlePickPhoto}
+        onClearPhoto={handleClearPhoto}
+
         onSelectLang={handleSelectLang}
         onRetakeTest={onRetakeTest}
         onResetProgress={onResetProgress}

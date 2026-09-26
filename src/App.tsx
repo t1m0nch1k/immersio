@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserState, Word, Lesson, LanguageCode } from './types';
 import { LESSONS } from './data/lessons';
 import { LANGUAGES } from './data/languages';
@@ -12,7 +12,6 @@ import { LessonList } from './components/LessonList';
 import { WordCardModal } from './components/WordCardModal';
 import { AuthModal } from './components/AuthModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { MobileNav } from './components/MobileNav';
 import { Route } from './routes';
 
 // The grammar and alphabet datasets cover all eight languages, so they are
@@ -62,6 +61,7 @@ export const App: React.FC = () => {
   const [userState, setUserState] = useState<UserState>(() => StorageService.load());
   const [currentRoute, setCurrentRoute] = useState<Route>('lessons');
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
 
   // Word Popup Card State
   const [popupWord, setPopupWord] = useState<{ word: Word; position: { left: number; top: number } } | null>(null);
@@ -228,6 +228,8 @@ export const App: React.FC = () => {
   }, []);
 
   const handleClosePopup = useCallback(() => setPopupWord(null), []);
+  const handleOpenNav = useCallback(() => setIsNavOpen(true), []);
+  const handleCloseNav = useCallback(() => setIsNavOpen(false), []);
   const handleOpenAuth = useCallback(() => setShowAuthModal(true), []);
   const handleCloseAuth = useCallback(() => setShowAuthModal(false), []);
   const handleNavigateCustom = useCallback(() => handleNavigate('custom'), [handleNavigate]);
@@ -278,16 +280,19 @@ export const App: React.FC = () => {
         onSelectLang={handleSelectLang}
         onToggleDarkMode={handleToggleDarkMode}
         onToggleSound={handleToggleSound}
+        onOpenNav={handleOpenNav}
         onOpenAuth={handleOpenAuth}
       />
 
       {/* Layout Shell */}
       <div className="shell">
-        {/* Sidebar */}
+        {/* Drawer: a permanent column on wide screens, an overlay on a phone. */}
         <Sidebar
           currentRoute={currentRoute}
           userState={userState}
+          isOpen={isNavOpen}
           onNavigate={handleNavigate}
+          onClose={handleCloseNav}
           onUpdateImmersion={handleUpdateImmersion}
         />
 
@@ -389,8 +394,6 @@ export const App: React.FC = () => {
           </ErrorBoundary>
         </main>
       </div>
-
-      <MobileNav currentRoute={currentRoute} onNavigate={handleNavigate} />
 
       {/* Floating Word Card Popup */}
       {popupWord && (
