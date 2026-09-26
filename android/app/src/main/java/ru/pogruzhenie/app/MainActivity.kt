@@ -3,6 +3,7 @@ package ru.pogruzhenie.app
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.res.Configuration
 import android.graphics.Color
 import android.net.Uri
@@ -64,8 +65,6 @@ class MainActivity : ComponentActivity() {
 
         root = FrameLayout(this)
         root.setBackgroundColor(paper)
-        controller = WindowInsetsControllerCompat(window, root)
-        applyBarAppearance()
 
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             // displayCutout() is requested explicitly: systemBars() alone does not
@@ -116,6 +115,12 @@ class MainActivity : ComponentActivity() {
 
         setContentView(root)
 
+        // Only valid once setContentView has installed the DecorView: the
+        // controller is fetched from it and throws a NullPointerException if the
+        // window has none yet.
+        controller = WindowInsetsControllerCompat(window, root)
+        applyTheme(isDarkTheme)
+
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
@@ -139,6 +144,14 @@ class MainActivity : ComponentActivity() {
         }
         webView.addJavascriptInterface(NativeSpeech(), "AndroidTts")
         webView.addJavascriptInterface(NativeHost(), "AndroidHost")
+
+        // Debug builds only: exposes the WebView over the DevTools protocol so
+        // the layout can be inspected on a real device instead of guessed at
+        // from screenshots. Never enabled in a release build, which is why the
+        // check is the debuggable flag rather than a BuildConfig constant.
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
