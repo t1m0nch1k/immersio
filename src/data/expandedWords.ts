@@ -2118,7 +2118,6 @@ const EXPANDED_WORDS_5: Word[] = [
   { id: 'v2102', ru: "буквы", en: "letters", es: "letras", de: "Buchstaben", fr: "lettres", it: "lettere", ja: "手紙", sk: "písmená", lvl: 3, cat: 'основа' },
   { id: 'v2103', ru: "либеральный", en: "liberal", es: "liberal", de: "liberal", fr: "libéral", it: "liberale", ja: "リベラルな", sk: "liberálny", lvl: 3, cat: 'основа' },
   { id: 'v2104', ru: "слушаю", en: "listening", es: "escuchando", de: "Zuhören", fr: "écouter", it: "ascolto", ja: "聞いている", sk: "počúvanie", lvl: 3, cat: 'основа' },
-  { id: 'v2105', ru: "я буду", en: "ll", es: "todos", de: "ll", fr: "ll", it: "ll", ja: "ll", sk: "ll", lvl: 3, cat: 'основа' },
   { id: 'v2106', ru: "любит", en: "loves", es: "ama", de: "liebt", fr: "aime", it: "ama", ja: "大好き", sk: "miluje", lvl: 3, cat: 'основа' },
   { id: 'v2107', ru: "обед", en: "lunch", es: "almuerzo", de: "Mittagessen", fr: "déjeuner", it: "pranzo", ja: "昼食", sk: "obed", lvl: 3, cat: 'еда' },
   { id: 'v2108', ru: "Макс", en: "max", es: "máximo", de: "max", fr: "maximum", it: "massimo", ja: "最大", sk: "max", lvl: 3, cat: 'основа' },

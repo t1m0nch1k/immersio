@@ -1,13 +1,15 @@
-import React from 'react';
+﻿import React, { useMemo } from 'react';
 import { LanguageCode, StudyTask, UserState } from '../types';
 import { buildStudyPlan } from '../services/studyPlanService';
 import { StorageService } from '../services/storageService';
+import { toastService } from '../services/toastService';
 import { audioService } from '../services/audioService';
+import { Route } from '../routes';
 
 interface DailyPlanCardProps {
   userState: UserState;
   onUpdateState: (newState: UserState) => void;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
   onOpenLesson?: (lessonId: string) => void;
   compact?: boolean;
 }
@@ -28,7 +30,10 @@ export const DailyPlanCard: React.FC<DailyPlanCardProps> = ({
   compact = false,
 }) => {
   const currentLang: LanguageCode = userState.currentLang;
-  const plan = buildStudyPlan(userState, currentLang);
+  // `buildStudyPlan` walks every learned word and creates a default SRS record
+  // for each one. It only depends on the state object, which changes exactly
+  // once per completed task.
+  const plan = useMemo(() => buildStudyPlan(userState, currentLang), [userState, currentLang]);
   const progressPct = Math.round((plan.completedMinutes / plan.totalMinutes) * 100);
 
   const handleStart = (task: StudyTask) => {
@@ -49,7 +54,9 @@ export const DailyPlanCard: React.FC<DailyPlanCardProps> = ({
       plan.tasks.map((item) => item.id),
     );
     if (changed) {
-      StorageService.checkAndUnlockAchievements(userState, () => {});
+      // `recordDailyTask` mutated `userState` in place (XP, streak, daily
+      // activity). The shallow copy is what re-renders the app with the result.
+      StorageService.checkAndUnlockAchievements(userState, toastService.show);
       onUpdateState({ ...userState });
     }
   };

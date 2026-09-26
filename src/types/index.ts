@@ -1,3 +1,5 @@
+import type { Route } from '../routes';
+
 export type LanguageCode = 'en' | 'es' | 'de' | 'fr' | 'it' | 'ja' | 'sk' | 'cs';
 
 export interface Language {
@@ -71,7 +73,6 @@ export interface Word {
   lvl: 1 | 2 | 3 | 4; // 1=A1, 2=A2, 3=B1, 4=B2/C1
   cat: WordCategory;
   exampleRu?: string;
-  exampleEn?: string;
 }
 
 export interface TextPieceWord {
@@ -117,7 +118,7 @@ export interface StudyTask {
   title: string;
   description: string;
   minutes: number;
-  route: string;
+  route: Route;
   targetId?: string;
   itemCount?: number;
   reviewedWords?: number;
@@ -175,12 +176,31 @@ export interface GrammarExerciseProgress {
 
 export type SubscriptionTier = 'free' | 'pro';
 
+/**
+ * PBKDF2-HMAC-SHA256 record persisted in `UserAccount.passwordHash`.
+ * `salt` and `hash` are base64, `iterations` is the PBKDF2 work factor that was
+ * actually used, so the cost can be raised later without invalidating records.
+ */
+export interface StoredPasswordHash {
+  salt: string;
+  hash: string;
+  iterations: number;
+}
+
+/**
+ * A `string` here is the legacy unsalted SHA-256 hex digest written by older
+ * builds. It is never verified: `AuthModal` discards it and asks the user to
+ * sign in again. The union keeps `StorageService`, which still forwards stored
+ * values verbatim and only checks `typeof === 'string'`, type-safe.
+ */
+export type PasswordHash = StoredPasswordHash | string;
+
 export interface UserAccount {
   email: string;
   name: string;
   isAuth: boolean;
   tier: SubscriptionTier;
-  passwordHash?: string;
+  passwordHash?: PasswordHash;
   subscribedDate?: string;
   subscriptionPlan?: 'monthly' | 'yearly' | 'lifetime';
 }

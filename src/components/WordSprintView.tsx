@@ -1,29 +1,28 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LanguageCode, UserState } from '../types';
-import { WORD_MAP, WORDS } from '../data/words';
+import { WORDS } from '../data/words';
 import { LANGUAGES } from '../data/languages';
 import { StorageService } from '../services/storageService';
+import { toastService } from '../services/toastService';
 import { SRSService } from '../services/srsService';
 import { audioService } from '../services/audioService';
 import confetti from 'canvas-confetti';
-import { GRAMMAR_WORD_MAP } from '../services/immersionService';
+import { shuffle } from '../utils';
+import { buildRussianDistractors, getRussianText, getTargetText, getWord } from '../utils/words';
+import { createSeededRandom } from './seededRandom';
+import { Route } from '../routes';
 
 interface WordSprintViewProps {
   userState: UserState;
   onUpdateState: (newState: UserState) => void;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
 }
 
 type AnswerState = { choice: string; correct: boolean } | null;
 
-const shuffle = <T,>(items: T[]): T[] => {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-};
+/** Wrong answers added on top of the correct one in every option list. */
+const OPTION_DISTRACTORS = 3;
+const ROUND_SECONDS = 60;
 
 export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpdateState, onNavigate }) => {
   const currentLang: LanguageCode = userState.currentLang;
@@ -31,74 +30,86 @@ export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpd
   const progress = StorageService.getLangProgress(userState, currentLang);
   const scoreRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const getWord = (wordId: string) => WORD_MAP[wordId] || GRAMMAR_WORD_MAP[wordId];
-  const getTargetText = (word: ReturnType<typeof getWord>) =>
-    (word ? (word[currentLang] || word.en) : '').trim();
-  const getRussianText = (word: ReturnType<typeof getWord>) => (word?.ru || '').trim();
+  /** Final score reported by whichever path ended the round. */
+  const finalScoreRef = useRef(0);
+  /** Set once the round reward has been paid; blocks a second payout. */
+  const rewardedRef = useRef(false);
   const createQueue = () => {
     const learned = new Set(progress.learnedWords);
     const newWords = shuffle(WORDS.filter((item) => !learned.has(item.id)).map((item) => item.id)).slice(0, 6);
-    const reviewWords = shuffle(progress.learnedWords.filter((id) => {
-      const word = getWord(id);
-      return Boolean(word && getRussianText(word) && getTargetText(word));
-    })).slice(0, 4);
+    const reviewWords = shuffle(progress.learnedWords.filter((id) =>
+      getTargetText(getWord(id), currentLang) && getRussianText(getWord(id))
+    )).slice(0, 4);
     return shuffle([...newWords, ...reviewWords]).slice(0, 10);
   };
   const [queue, setQueue] = useState<string[]>(createQueue);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [seconds, setSeconds] = useState(60);
+  const [seconds, setSeconds] = useState(ROUND_SECONDS);
   const [answer, setAnswer] = useState<AnswerState>(null);
   const [finished, setFinished] = useState(false);
 
   const currentWord = getWord(queue[index]);
-  const currentText = getTargetText(currentWord);
+  const currentText = getTargetText(currentWord, currentLang);
   const options = useMemo(() => {
     if (!currentWord) return [];
     const correctAnswer = getRussianText(currentWord);
-    const distractors = shuffle(
-      WORDS
-        .filter((item) => {
-          const russianText = getRussianText(item);
-          return item.id !== currentWord.id && russianText && russianText !== correctAnswer;
-        })
-        .map(getRussianText)
-        .filter((value, itemIndex, values) => values.indexOf(value) === itemIndex)
-    ).slice(0, 3);
-    return shuffle([correctAnswer, ...distractors]);
+    if (!correctAnswer) return [];
+    // Seeded per word: the same word always gets the same four options, so a
+    // re-render can never move the correct answer under a different button.
+    const random = createSeededRandom(`${currentLang}:sprint:${currentWord.id}`);
+    const distractors = buildRussianDistractors(correctAnswer, currentWord.id, OPTION_DISTRACTORS, random);
+    return shuffle([correctAnswer, ...distractors], random);
   }, [currentWord, currentLang]);
 
   useEffect(() => {
     scoreRef.current = score;
   }, [score]);
 
-  const finish = (finalScore: number) => {
-    if (finished) return;
+  /**
+   * Ends the round. It only flips `finished` — the reward lives in the effect
+   * below. Calling it from inside a `setState` updater (as the old timer did)
+   * made StrictMode run it twice and pay the XP twice.
+   */
+  const finish = useCallback((finalScore: number) => {
+    finalScoreRef.current = finalScore;
     setFinished(true);
-    const xpGain = 12 + finalScore * 3;
-    userState.xp += xpGain;
-    StorageService.save(userState);
-    StorageService.checkAndUnlockAchievements(userState, () => {});
-    onUpdateState({ ...userState });
-    audioService.playFanfare();
-    confetti({ particleCount: 70, spread: 70, origin: { y: 0.6 } });
-  };
+  }, []);
 
   useEffect(() => {
     if (finished) return undefined;
+    // The updater is pure: React 18 StrictMode invokes it twice per tick, which
+    // is harmless for a plain number. Deciding "the round is over" happens in
+    // the effect below, not here.
     const timer = window.setInterval(() => {
-      setSeconds((value) => {
-        if (value <= 1) {
-          window.clearInterval(timer);
-          finish(scoreRef.current);
-          return 0;
-        }
-        return value - 1;
-      });
+      setSeconds((value) => (value <= 1 ? 0 : value - 1));
     }, 1000);
     return () => window.clearInterval(timer);
   }, [finished]);
+
+  // Terminal value reached. `rewardedRef` is the double-run guard and it is set
+  // before any of the side effects below, so a second invocation — StrictMode
+  // mount double-invoke, or a re-render where the inline `onUpdateState` arrow
+  // changed identity — cannot pay the round out twice.
+  useEffect(() => {
+    if (!finished || rewardedRef.current) return;
+    rewardedRef.current = true;
+    const xpGain = 12 + finalScoreRef.current * 3;
+    // `userState` is mutated in place (project-wide pattern); the shallow copy
+    // passed to `onUpdateState` is what publishes the awarded XP.
+    userState.xp += xpGain;
+    StorageService.save(userState);
+    StorageService.checkAndUnlockAchievements(userState, toastService.show);
+    onUpdateState({ ...userState });
+    audioService.playFanfare();
+    confetti({ particleCount: 70, spread: 70, origin: { y: 0.6 } });
+  }, [finished, userState, onUpdateState]);
+
+  useEffect(() => {
+    if (finished || seconds > 0) return;
+    finish(scoreRef.current);
+  }, [finished, seconds, finish]);
 
   useEffect(() => () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -111,8 +122,10 @@ export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpd
     setScore(0);
     scoreRef.current = 0;
     setStreak(0);
-    setSeconds(60);
+    setSeconds(ROUND_SECONDS);
     setAnswer(null);
+    rewardedRef.current = false;
+    finalScoreRef.current = 0;
     setFinished(false);
   };
 
@@ -122,6 +135,9 @@ export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpd
     const nextScore = score + (correct ? 1 : 0);
     setAnswer({ choice, correct });
     setScore(nextScore);
+    // Keep the ref in sync immediately: the round can end 520ms later and the
+    // timer path reads the score from here.
+    scoreRef.current = nextScore;
     setStreak((value) => (correct ? value + 1 : 0));
     if (correct) {
       audioService.playSuccess();

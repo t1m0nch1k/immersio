@@ -1,8 +1,15 @@
-import React, { useRef, useState } from 'react';
+﻿import { useMemo, useRef, useState } from 'react';
 import { GrammarLesson, UserState } from '../types';
 import { audioService } from '../services/audioService';
 import { StorageService } from '../services/storageService';
-import { buildGrammarExercises, checkGrammarAnswer, recordGrammarAnswer, shuffledTokenIndices } from '../services/grammarService';
+import {
+  buildGrammarExercises,
+  checkGrammarAnswer,
+  GrammarMode,
+  recordGrammarAnswer,
+  shuffledTokenIndices,
+  withGrammarSession,
+} from '../services/grammarService';
 import { VirtualKeyboard } from './VirtualKeyboard';
 
 interface Props {
@@ -12,11 +19,19 @@ interface Props {
   onClose: () => void;
 }
 
-const stageNames = { build: 'Собери фразу', gap: 'Восстанови пропуск', write: 'Напиши по памяти', transform: 'Измени конструкцию' };
+/** `Record<GrammarMode, string>` makes a new exercise mode a compile error here. */
+const stageNames: Record<GrammarMode, string> = {
+  build: 'Собери фразу',
+  gap: 'Восстанови пропуск',
+  write: 'Напиши по памяти',
+  transform: 'Измени конструкцию',
+};
 
 export function GrammarTrainer({ lesson, userState, onUpdateState, onClose }: Props) {
   const lang = userState.currentLang;
-  const exercises = buildGrammarExercises(lesson, lang);
+  // Rebuilding every exercise of the topic on each keystroke is pure waste: the
+  // set only depends on the topic and the target language.
+  const exercises = useMemo(() => buildGrammarExercises(lesson, lang), [lesson, lang]);
   const session = StorageService.getLangProgress(userState, lang).grammarSession;
   const [index, setIndex] = useState(session?.lessonId === lesson.id ? Math.min(session.exerciseIndex, exercises.length) : 0);
   const [selected, setSelected] = useState<number[]>([]);
@@ -28,10 +43,13 @@ export function GrammarTrainer({ lesson, userState, onUpdateState, onClose }: Pr
   const checking = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const exercise = exercises[index];
+  // The saved cursor is an index into this build's exercise list. If the topic
+  // data changed, the stored index can address a different mode (or nothing),
+  // so the `transform` prompt is read through a guard instead of `!`.
+  const transformPrompt = exercise?.mode === 'transform' ? exercise.example.transform?.prompt : undefined;
 
   function saveCursor(nextIndex: number) {
-    const next = structuredClone(userState);
-    StorageService.ensureLangProgress(next, lang).grammarSession = { lessonId: lesson.id, exerciseIndex: nextIndex };
+    const next = withGrammarSession(userState, lang, { lessonId: lesson.id, exerciseIndex: nextIndex });
     StorageService.save(next);
     onUpdateState(next);
   }
@@ -47,13 +65,13 @@ export function GrammarTrainer({ lesson, userState, onUpdateState, onClose }: Pr
   }
 
   function check() {
-    if (checking.current || feedback) return;
+    if (checking.current || feedback || !exercise) return;
     const answer = exercise.mode === 'build' ? selected.map((i) => exercise.tokens[i]).join(lang === 'ja' ? '' : ' ') : input;
     if (!answer.trim()) return;
     checking.current = true;
     const result = checkGrammarAnswer(exercise, answer, lang);
-    const next = recordGrammarAnswer(userState, lang, exercise.id, result.correct, assisted);
-    StorageService.ensureLangProgress(next, lang).grammarSession = { lessonId: lesson.id, exerciseIndex: index, assisted: assisted || !result.correct };
+    const recorded = recordGrammarAnswer(userState, lang, exercise.id, result.correct, assisted);
+    const next = withGrammarSession(recorded, lang, { lessonId: lesson.id, exerciseIndex: index, assisted: assisted || !result.correct });
     StorageService.save(next);
     onUpdateState(next);
     setFeedback(result);
@@ -77,7 +95,7 @@ export function GrammarTrainer({ lesson, userState, onUpdateState, onClose }: Pr
     <div className="overline">{lesson.title}</div>
     <h2 ref={heading} tabIndex={-1}>{stageNames[exercise.mode]}</h2>
     <details><summary>Правило этой темы</summary><p>{lesson.explanation}</p></details>
-    <p>{exercise.mode === 'transform' ? exercise.example.transform!.prompt : exercise.example.ru}</p>
+    <p>{exercise.mode === 'transform' ? (transformPrompt ?? exercise.example.target) : exercise.example.ru}</p>
     {exercise.mode === 'transform' && <p lang={lang} className="grammar-source">{exercise.example.target}</p>}
     {exercise.mode === 'gap' && <p className="grammar-source" lang={lang}>{exercise.tokens.map((token, i) => i === exercise.gapIndex ? '____' : token).join(lang === 'ja' ? '' : ' ')}</p>}
     {exercise.mode === 'write' && <small>Восстанови изученную фразу. Проверяются образец и предусмотренные варианты, а не все возможные переводы.</small>}
@@ -105,8 +123,7 @@ export function GrammarTrainer({ lesson, userState, onUpdateState, onClose }: Pr
         <button type="submit" className="btn sun" disabled={!!feedback || (exercise.mode === 'build' ? selected.length !== exercise.tokens.length : !input.trim())}>Проверить</button>
         <button type="button" className="btn" disabled={!!feedback} onClick={() => {
           setHint(true); setAssisted(true);
-          const next = structuredClone(userState);
-          StorageService.ensureLangProgress(next, lang).grammarSession = { lessonId: lesson.id, exerciseIndex: index, assisted: true };
+          const next = withGrammarSession(userState, lang, { lessonId: lesson.id, exerciseIndex: index, assisted: true });
           StorageService.save(next); onUpdateState(next);
         }}>Подсказка</button>
       </div>

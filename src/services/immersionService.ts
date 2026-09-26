@@ -1,5 +1,5 @@
-import { LanguageCode, TextPiece, TextPieceWord, Word } from '../types';
-import { BASE_WORDS, WORD_MAP, WORDS } from '../data/words';
+import { LanguageCode, TextPiece, Word } from '../types';
+import { WORD_MAP, WORDS } from '../data/words';
 
 export interface ImmersionToken {
   key: string;
@@ -597,6 +597,69 @@ const buildRussianIndex = (): Map<string, Word> => {
 const RUSSIAN_INDEX = buildRussianIndex();
 
 /**
+ * Precomputed lookup tables used by `tokenizeForeignSentence`.
+ *
+ * The tokenizer used to run up to three linear `WORDS.find()` scans per token
+ * (~3.7k string comparisons each), which is ~600k comparisons for a single
+ * 7-sentence lesson. The maps below are built once per language on first use
+ * and reproduce the previous searches exactly:
+ *
+ * - `EXACT_WORD_INDEX` — the first record of `WORDS` wins, `GRAMMAR_WORD_MAP`
+ *   only answers for keys the main dictionary does not know
+ *   (`WORDS.find(...) || Object.values(GRAMMAR_WORD_MAP).find(...)`).
+ * - `PREFIX_WORD_INDEX` — `foreign.startsWith(head) || head.startsWith(foreign)`
+ *   with both heads cut to 4 characters collapses to plain 4-character
+ *   equality, so a `Map` keyed by that prefix is equivalent to the old scan.
+ *
+ * Both keep the original `word[lang] || word.en || ''` fallback per record, so
+ * the resolved `wordId` is bit-for-bit the same as before.
+ */
+const foreignSurface = (word: Word, lang: LanguageCode): string => (word[lang] || word.en || '').toLowerCase();
+
+const EXACT_WORD_INDEX = new Map<LanguageCode, Map<string, Word>>();
+const PREFIX_WORD_INDEX = new Map<LanguageCode, Map<string, Word>>();
+
+const buildExactWordIndex = (lang: LanguageCode): Map<string, Word> => {
+  const index = new Map<string, Word>();
+  WORDS.forEach((word) => {
+    const foreign = foreignSurface(word, lang);
+    if (foreign && !index.has(foreign)) index.set(foreign, word);
+  });
+  Object.values(GRAMMAR_WORD_MAP).forEach((word) => {
+    const foreign = foreignSurface(word, lang);
+    if (foreign && !index.has(foreign)) index.set(foreign, word);
+  });
+  return index;
+};
+
+const buildPrefixWordIndex = (lang: LanguageCode): Map<string, Word> => {
+  const index = new Map<string, Word>();
+  WORDS.forEach((word) => {
+    const foreign = foreignSurface(word, lang);
+    if (foreign.length < 4) return;
+    const prefix = foreign.slice(0, 4);
+    if (!index.has(prefix)) index.set(prefix, word);
+  });
+  return index;
+};
+
+const getExactWordIndex = (lang: LanguageCode): Map<string, Word> => {
+  const cached = EXACT_WORD_INDEX.get(lang);
+  if (cached) return cached;
+  const index = buildExactWordIndex(lang);
+  EXACT_WORD_INDEX.set(lang, index);
+  return index;
+};
+
+const getPrefixWordIndex = (lang: LanguageCode): Map<string, Word> => {
+  const cached = PREFIX_WORD_INDEX.get(lang);
+  if (cached) return cached;
+  const index = buildPrefixWordIndex(lang);
+  PREFIX_WORD_INDEX.set(lang, index);
+  return index;
+};
+
+/**
  * Clean verbs for natural bilingual reading (e.g. English "to wait" -> "wait",
  * Spanish "caminar" stays as is, etc.)
  */
@@ -1129,6 +1192,8 @@ export const tokenizeForeignSentence = (
   const result: ImmersionToken[] = [];
   let tokenIndex = 0;
   let lastOffset = 0;
+  const exactIndex = getExactWordIndex(lang);
+  const prefixIndex = getPrefixWordIndex(lang);
 
   tokenWordPattern.lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -1159,26 +1224,12 @@ export const tokenizeForeignSentence = (
 
     // 2. Exact match in WORDS or GRAMMAR_WORD_MAP
     if (!matchedWord) {
-      matchedWord =
-        WORDS.find((w) => {
-          const foreign = (w[lang] || w.en || '').toLowerCase();
-          return foreign === lowerWord;
-        }) ||
-        Object.values(GRAMMAR_WORD_MAP).find((w) => {
-          const foreign = (w[lang] || w.en || '').toLowerCase();
-          return foreign === lowerWord;
-        });
+      matchedWord = exactIndex.get(lowerWord);
     }
 
     // 3. Substring / base match
     if (!matchedWord && lowerWord.length >= 4) {
-      matchedWord = WORDS.find((w) => {
-        const foreign = (w[lang] || w.en || '').toLowerCase();
-        return (
-          foreign.length >= 4 &&
-          (foreign.startsWith(lowerWord.slice(0, 4)) || lowerWord.startsWith(foreign.slice(0, 4)))
-        );
-      });
+      matchedWord = prefixIndex.get(lowerWord.slice(0, 4));
     }
 
     const finalWordId = matchedWord?.id || matchedWordId;

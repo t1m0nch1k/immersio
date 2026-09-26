@@ -1,5 +1,12 @@
-import { GrammarExample, GrammarLesson, LanguageCode, UserState } from '../types';
-import { getLocalDateKey, StorageService } from './storageService';
+import {
+  GrammarExample,
+  GrammarLesson,
+  LanguageCode,
+  UserLanguageProgress,
+  UserState,
+} from '../types';
+import { getInitialProgress, getLocalDateKey, StorageService } from './storageService';
+import { shuffle } from '../utils/array';
 
 export type GrammarMode = 'build' | 'gap' | 'write' | 'transform';
 export interface GrammarExercise {
@@ -69,19 +76,38 @@ export function checkGrammarAnswer(exercise: GrammarExercise, input: string, lan
 }
 
 export function shuffledTokenIndices(tokens: string[]): number[] {
-  const indices = tokens.map((_, i) => i);
-  for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
-  }
-  if (indices.every((value, i) => tokens[value] === tokens[i])) indices.push(indices.shift()!);
-  return indices;
+  const shuffled = shuffle(tokens.map((_, index) => index));
+  // A shuffle that leaves the tokens in place is useless for a "build the
+  // sentence" task, so rotate it once.
+  if (shuffled.every((value, index) => tokens[value] === tokens[index])) shuffled.push(shuffled.shift()!);
+  return shuffled;
+}
+
+/**
+ * Copy-on-write helper for the grammar cursor.
+ *
+ * `structuredClone(userState)` deep-copies the entire learner profile — every
+ * learned word id and every SRS record — on every answer, hint and topic start.
+ * These screens only ever write the `grammarSession` cursor of a single language,
+ * so that branch is copied and the rest of the state is shared by reference.
+ */
+export function withGrammarSession(
+  state: UserState,
+  lang: LanguageCode,
+  session: UserLanguageProgress['grammarSession'] | undefined
+): UserState {
+  const progress = state.languages[lang] ?? getInitialProgress();
+  return {
+    ...state,
+    languages: {
+      ...state.languages,
+      [lang]: { ...progress, grammarSession: session },
+    },
+  };
 }
 
 export function recordGrammarAnswer(state: UserState, lang: LanguageCode, id: string, correct: boolean, assisted: boolean) {
-  const next = structuredClone(state);
-  const progress = StorageService.ensureLangProgress(next, lang);
-  progress.grammarProgress ||= {};
+  const progress = state.languages[lang] ?? getInitialProgress();
   const previous = progress.grammarProgress[id] || { attempts: 0, correct: 0, streak: 0, needsReview: false, dueDate: '', lastRewardDate: '' };
   const independent = correct && !assisted;
   const today = getLocalDateKey();
@@ -90,12 +116,28 @@ export function recordGrammarAnswer(state: UserState, lang: LanguageCode, id: st
   const streak = independent ? Math.max(1, previous.streak + (newSuccess ? 1 : 0)) : 0;
   const due = new Date();
   due.setDate(due.getDate() + (independent ? [1, 3, 7, 14][Math.min(Math.max(streak - 1, 0), 3)] : 0));
-  progress.grammarProgress[id] = {
-    attempts: previous.attempts + 1,
-    correct: previous.correct + (correct ? 1 : 0),
-    streak, needsReview: !independent,
-    dueDate: getLocalDateKey(due),
-    lastRewardDate: newSuccess ? today : previous.lastRewardDate,
+  // Only the branches this function writes are copied: the source state stays
+  // untouched, which is what the "answer recording must not mutate" test checks.
+  const next: UserState = {
+    ...state,
+    languages: {
+      ...state.languages,
+      [lang]: {
+        ...progress,
+        grammarProgress: {
+          ...progress.grammarProgress,
+          [id]: {
+            attempts: previous.attempts + 1,
+            correct: previous.correct + (correct ? 1 : 0),
+            streak, needsReview: !independent,
+            dueDate: getLocalDateKey(due),
+            lastRewardDate: newSuccess ? today : previous.lastRewardDate,
+          },
+        },
+      },
+    },
+    streak: { ...state.streak },
+    history: [...state.history],
   };
   if (newSuccess) {
     next.xp += 2;

@@ -1,13 +1,14 @@
-import React from 'react';
+﻿import React from 'react';
 import { UserState } from '../types';
 import { StorageService, getLocalDateKey } from '../services/storageService';
 import { audioService } from '../services/audioService';
 import { getImmersionProfile } from '../services/immersionProfile';
+import { Route } from '../routes';
 
 interface SidebarProps {
   currentRoute: string;
   userState: UserState;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
   onUpdateImmersion: (immersion: number) => void;
 }
 

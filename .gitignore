@@ -25,3 +25,7 @@ android/local.properties
 android/**/build/
 android/.kotlin/
 android/app/src/main/assets/www/
+
+# Standalone design prototypes, kept out of the repository
+/redesign-example/
+/Qwen_html_*.html

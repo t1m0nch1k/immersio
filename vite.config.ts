@@ -58,7 +58,7 @@ export default defineConfig(({ mode }) => {
           try {
             const urlObj = new URL(req.url || '', 'http://localhost');
             const text = urlObj.searchParams.get('text') || '';
-            const lang = urlObj.searchParams.get('lang') || 'ja';
+            const lang = (urlObj.searchParams.get('lang') || 'ja').toLowerCase();
 
             if (!text.trim()) {
               res.statusCode = 400;
@@ -72,22 +72,22 @@ export default defineConfig(({ mode }) => {
               return;
             }
 
-            const targetLangMap: Record<string, string> = {
-              ja: 'ja',
-              en: 'en',
-              es: 'es',
-              de: 'de',
-              fr: 'fr',
-              it: 'it',
-              sk: 'sk',
-              cs: 'cs'
-            };
+            // Same whitelist as production (api/tts.py VOICES keys): an unknown
+            // language must fail loudly instead of silently reading the text
+            // with the Japanese voice.
+            if (!Object.prototype.hasOwnProperty.call(edgeTtsVoices, lang)) {
+              res.statusCode = 400;
+              res.end('Unsupported language');
+              return;
+            }
 
-            const targetLang = targetLangMap[lang] || 'ja';
+            const targetLang = lang;
 
             const sendAudio = (audioBuffer: Buffer) => {
               res.setHeader('Content-Type', 'audio/mpeg');
-              res.setHeader('Cache-Control', 'public, max-age=86400');
+              res.setHeader('X-Content-Type-Options', 'nosniff');
+              // Text is user supplied, so keep it out of shared caches.
+              res.setHeader('Cache-Control', 'private, max-age=3600');
               res.end(audioBuffer);
             };
 

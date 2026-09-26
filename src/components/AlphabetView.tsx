@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { ALPHABETS } from '../data/alphabet';
 import { audioService } from '../services/audioService';
 import { VirtualKeyboard } from './VirtualKeyboard';
+import { Route } from '../routes';
 
 interface AlphabetViewProps {
   userState: UserState;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
 }
 
 export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigate }) => {
@@ -15,7 +16,16 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
   const language = LANGUAGES[currentLang] || LANGUAGES.en;
   const alphabet = ALPHABETS[currentLang] || ALPHABETS.en;
   const [keyboardText, setKeyboardText] = useState('');
-  let letterIndex = 0;
+
+  // Numbering runs across all groups, so it is computed once instead of being
+  // incremented inside the render pass (a side effect during render).
+  const indexedGroups = useMemo(() => {
+    let index = 0;
+    return alphabet.groups.map((group) => ({
+      ...group,
+      letters: group.letters.map((letter) => ({ letter, index: (index += 1) })),
+    }));
+  }, [alphabet]);
 
   useEffect(() => {
     setKeyboardText('');
@@ -65,7 +75,7 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
         <VirtualKeyboard lang={currentLang} value={keyboardText} onChange={setKeyboardText} defaultOpen />
       </section>
 
-      {alphabet.groups.map((group) => (
+      {indexedGroups.map((group) => (
         <section className="alphabet-section" key={group.title}>
           <div className="section-heading">
             <div>
@@ -75,23 +85,19 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
             {group.description && <p>{group.description}</p>}
           </div>
           <div className="alphabet-grid">
-            {group.letters.map((letter) => {
-              letterIndex += 1;
-              const currentIndex = letterIndex;
-              return (
-                <button
-                  className="card alphabet-letter"
-                  key={`${group.title}-${letter}-${currentIndex}`}
-                  onClick={() => audioService.speak(letter, currentLang)}
-                  title={`Произнести ${letter}`}
-                  aria-label={`Произнести букву ${letter}`}
-                >
-                  <span className="alphabet-index">{String(currentIndex).padStart(2, '0')}</span>
-                  <strong>{letter}</strong>
-                  <span className="alphabet-sound">🔊</span>
-                </button>
-              );
-            })}
+            {group.letters.map(({ letter, index: currentIndex }) => (
+              <button
+                className="card alphabet-letter"
+                key={`${group.title}-${letter}-${currentIndex}`}
+                onClick={() => audioService.speak(letter, currentLang)}
+                title={`Произнести ${letter}`}
+                aria-label={`Произнести букву ${letter}`}
+              >
+                <span className="alphabet-index">{String(currentIndex).padStart(2, '0')}</span>
+                <strong>{letter}</strong>
+                <span className="alphabet-sound">🔊</span>
+              </button>
+            ))}
           </div>
         </section>
       ))}

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { Lesson, UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { StorageService } from '../services/storageService';
 import { audioService } from '../services/audioService';
 import { DailyPlanCard } from './DailyPlanCard';
 import { ListeningTodayCard } from './ListeningTodayCard';
+import { Route } from '../routes';
 
 interface LessonListProps {
   userState: UserState;
@@ -12,7 +13,7 @@ interface LessonListProps {
   onOpenLesson: (lessonId: string) => void;
   onNavigateCustom: () => void;
   onUpdateState: (newState: UserState) => void;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
 }
 
 export const LessonList: React.FC<LessonListProps> = ({
@@ -27,17 +28,45 @@ export const LessonList: React.FC<LessonListProps> = ({
 
   const langProg = StorageService.getLangProgress(userState, userState.currentLang);
   const currentLangObj = LANGUAGES[userState.currentLang] || LANGUAGES.en;
-  // Combine standard lessons and custom lessons
-  const allLessons = [...lessons, ...userState.customLessons];
+
+  // Combine standard lessons and custom lessons.
+  // `userState` is the dependency on purpose: `CustomTextImport` appends a custom
+  // lesson with `customLessons.push(...)`, so the array reference survives the
+  // change and only a new state object reveals it.
+  const allLessons = useMemo(
+    () => [...lessons, ...userState.customLessons],
+    [lessons, userState]
+  );
 
   // Find next uncompleted lesson
-  const nextLesson = allLessons.find((l) => !langProg.doneLessons[l.id]);
+  const nextLesson = useMemo(
+    () => allLessons.find((l) => !langProg.doneLessons[l.id]),
+    [allLessons, userState]
+  );
 
-  const filteredLessons = allLessons.filter((l) => {
-    if (levelFilter === 'custom') return l.id.startsWith('custom_');
-    if (levelFilter !== null) return l.lvl === levelFilter;
-    return true;
-  });
+  const filteredLessons = useMemo(
+    () =>
+      allLessons.filter((l) => {
+        if (levelFilter === 'custom') return l.id.startsWith('custom_');
+        if (levelFilter !== null) return l.lvl === levelFilter;
+        return true;
+      }),
+    [allLessons, levelFilter, userState]
+  );
+
+  // Number of dictionary concepts per lesson. `ls.sent.flat().filter(...)` used
+  // to run once per visible card on every render, re-walking and re-flattening
+  // every sentence of every lesson shown on screen.
+  const conceptCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    allLessons.forEach((lesson) => {
+      counts.set(
+        lesson.id,
+        lesson.sent.flat().filter((piece) => typeof piece !== 'string' && piece.id).length
+      );
+    });
+    return counts;
+  }, [allLessons, userState]);
 
   return (
     <div className="view">
@@ -162,7 +191,7 @@ export const LessonList: React.FC<LessonListProps> = ({
             !isDone;
 
           const isLocked = isStandardLocked;
-          const conceptCount = ls.sent.flat().filter((p) => typeof p !== 'string' && p.id).length;
+          const conceptCount = conceptCounts.get(ls.id) ?? 0;
 
           let statusMarkup = <span style={{ color: 'var(--pine3)' }}>→ открыть</span>;
           if (isDone) {

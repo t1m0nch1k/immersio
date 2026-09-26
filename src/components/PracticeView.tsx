@@ -1,19 +1,26 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { UserState, Word } from '../types';
-import { WORD_MAP, WORDS } from '../data/words';
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import { UserState } from '../types';
 import { StorageService } from '../services/storageService';
+import { toastService } from '../services/toastService';
 import { SRSService } from '../services/srsService';
 import { audioService } from '../services/audioService';
 import confetti from 'canvas-confetti';
 import { DailyPlanCard } from './DailyPlanCard';
 import { ListeningTodayCard } from './ListeningTodayCard';
-import { GRAMMAR_WORD_MAP } from '../services/immersionService';
+import { shuffle } from '../utils';
+import { buildRussianDistractors, getRussianText, getTargetText, getWord, isUsableWord } from '../utils/words';
+import { createSeededRandom } from './seededRandom';
+import { PairSide, usePairsMatching } from './usePairsMatching';
+import { Route } from '../routes';
 
 interface PracticeViewProps {
   userState: UserState;
   onUpdateState: (newState: UserState) => void;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
 }
+
+/** Wrong answers added on top of the correct one in every option list. */
+const OPTION_DISTRACTORS = 3;
 
 export const PracticeView: React.FC<PracticeViewProps> = ({
   userState,
@@ -37,62 +44,39 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   // Pairs state
   const [pairsLeft, setPairsLeft] = useState<string[]>([]);
   const [pairsRight, setPairsRight] = useState<string[]>([]);
-  const [pairsMatched, setPairsMatched] = useState<string[]>([]);
-  const [pairsSel, setPairsSel] = useState<{ side: 'L' | 'R'; id: string } | null>(null);
 
   const currentLang = userState.currentLang;
   const langProg = StorageService.getLangProgress(userState, currentLang);
   const learnedWords = langProg.learnedWords;
 
-  // The reader can contain grammar tokens and older progress can contain
-  // temporary ids. Practice must only use complete dictionary records, or it
-  // can render an empty answer button for an id that has no word data.
-  const getPracticeWord = (wordId: string): Word | undefined =>
-    WORD_MAP[wordId] || GRAMMAR_WORD_MAP[wordId];
-
-  const getTargetText = (word: Word | undefined): string =>
-    (word ? (word[currentLang] || word.en) : '').trim();
-
-  const getRussianText = (word: Word | undefined): string => (word?.ru || '').trim();
-
-  const isUsablePracticeWord = (wordId: string): boolean => {
-    const word = getPracticeWord(wordId);
-    return Boolean(word && getRussianText(word) && getTargetText(word));
-  };
-
-  const usableLearnedWords = learnedWords.filter(isUsablePracticeWord);
+  const pairs = usePairsMatching(pairsLeft.length);
 
   useEffect(() => {
     setAnsweredQuizIndex(null);
   }, [quizIndex, activeGame]);
 
-  const shuffle = <T,>(arr: T[]): T[] => {
-    const copy = [...arr];
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy;
-  };
+  // The reader can contain grammar tokens and older progress can contain
+  // temporary ids. Practice must only use complete dictionary records, or it
+  // can render an empty answer button for an id that has no word data.
+  const usableLearnedWords = useMemo(
+    () => learnedWords.filter((wordId) => isUsableWord(getWord(wordId), currentLang)),
+    // 3.5k+ dictionary lookups on every render bought nothing: the filtered
+    // list can only change when the dictionary or the target language does.
+    [learnedWords, currentLang]
+  );
 
   // Precompute options for quizPool so button positions NEVER reshuffle on re-render
   const quizOptionsMap = useMemo(() => {
     const map: Record<string, string[]> = {};
     quizPool.forEach((wordId) => {
-      const word = getPracticeWord(wordId);
+      const word = getWord(wordId);
       const correctAnswer = getRussianText(word);
-      if (word && correctAnswer && getTargetText(word)) {
-        const pool = shuffle(
-          WORDS.filter((w) => {
-            const russianText = getRussianText(w);
-            return w.id !== wordId && russianText && russianText !== correctAnswer;
-          })
-        )
-          .map(getRussianText)
-          .filter((value, index, values) => values.indexOf(value) === index)
-          .slice(0, 3);
-        map[wordId] = shuffle([correctAnswer, ...pool]);
-      }
+      if (!word || !correctAnswer || !getTargetText(word, currentLang)) return;
+      // Seeded per word: the four options of a word are the same on every
+      // re-render and across retries instead of being re-rolled each round.
+      const random = createSeededRandom(`${currentLang}:practice:${wordId}`);
+      const distractors = buildRussianDistractors(correctAnswer, wordId, OPTION_DISTRACTORS, random);
+      map[wordId] = shuffle([correctAnswer, ...distractors], random);
     });
     return map;
   }, [quizPool, currentLang]);
@@ -134,9 +118,11 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
       setSrsIndex((prev) => prev + 1);
       setSrsFlipped(false);
     } else {
+      // `userState` is mutated in place (project-wide pattern); the shallow copy
+      // passed to `onUpdateState` is what re-renders the app with the new XP.
       userState.xp += 15 + nextScore * 2;
       StorageService.save(userState);
-      StorageService.checkAndUnlockAchievements(userState, () => {});
+      StorageService.checkAndUnlockAchievements(userState, toastService.show);
       onUpdateState({ ...userState });
       confetti({ particleCount: 50 });
       setGameFinished(true);
@@ -159,8 +145,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     const pool = shuffle(usableLearnedWords).slice(0, 6);
     setPairsLeft(shuffle(pool));
     setPairsRight(shuffle(pool));
-    setPairsMatched([]);
-    setPairsSel(null);
+    pairs.reset();
     setScore(0);
     setAnsweredQuizIndex(null);
     setGameFinished(false);
@@ -178,43 +163,33 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     setActiveGame('audio');
   };
 
-  const handlePairClick = (side: 'L' | 'R', id: string) => {
-    if (pairsMatched.includes(id)) return;
-
-    if (!pairsSel) {
+  const handlePairClick = (side: PairSide, id: string) => {
+    const result = pairs.click(side, id);
+    if (result === 'ignored') return;
+    if (result === 'selected' || result === 'reselected') {
       audioService.playClick();
-      setPairsSel({ side, id });
       return;
     }
-
-    if (pairsSel.side === side) {
-      audioService.playClick();
-      setPairsSel({ side, id });
-      return;
-    }
-
-    if (pairsSel.id === id) {
-      audioService.playSuccess();
-      const updated = [...pairsMatched, id];
-      setPairsMatched(updated);
-      setPairsSel(null);
-
-      if (updated.length === pairsLeft.length) {
-        const xpGain = 12 + updated.length * 2;
-        userState.xp += xpGain;
-        StorageService.save(userState);
-        onUpdateState({ ...userState });
-        confetti({ particleCount: 50 });
-        setGameFinished(true);
-      }
-    } else {
+    if (result === 'missed') {
       audioService.playError();
-      setPairsSel(null);
+      return;
+    }
+
+    audioService.playSuccess();
+    if (result === 'completed') {
+      // In-place mutation again; the copy handed to `onUpdateState` is what
+      // makes the awarded XP visible.
+      const xpGain = 12 + pairsLeft.length * 2;
+      userState.xp += xpGain;
+      StorageService.save(userState);
+      onUpdateState({ ...userState });
+      confetti({ particleCount: 50 });
+      setGameFinished(true);
     }
   };
 
   const currentQuizWordId = quizPool[quizIndex];
-  const currentQuizWord = getPracticeWord(currentQuizWordId);
+  const currentQuizWord = getWord(currentQuizWordId);
 
   const handleMCQAnswer = (chosenRu: string) => {
     if (answeredQuizIndex === quizIndex) return;
@@ -231,6 +206,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     if (quizIndex + 1 < quizPool.length) {
       setQuizIndex((prev) => prev + 1);
     } else {
+      // In-place mutation; the copy passed to `onUpdateState` publishes the XP.
       const xpGain = 10 + nextScore * 2;
       userState.xp += xpGain;
       StorageService.save(userState);
@@ -345,8 +321,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
               {(() => {
                 const wordId = srsQueue[srsIndex];
-                const word = getPracticeWord(wordId);
-                const targetTxt = getTargetText(word);
+                const word = getWord(wordId);
+                const targetTxt = getTargetText(word, currentLang);
 
                 return (
                   <div>
@@ -403,11 +379,11 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                 Вопрос {quizIndex + 1} из {quizPool.length}
               </div>
               <div className="qword">
-                {getTargetText(currentQuizWord)}
+                {getTargetText(currentQuizWord, currentLang)}
                 <button
                   className="iconbtn"
                   style={{ marginLeft: '10px' }}
-                  onClick={() => audioService.speak(getTargetText(currentQuizWord), currentLang)}
+                  onClick={() => audioService.speak(getTargetText(currentQuizWord, currentLang), currentLang)}
                 >
                   🔊
                 </button>
@@ -432,11 +408,10 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               <div className="pcols">
                 <div>
                   {pairsLeft.map((id) => {
-                    const w = getPracticeWord(id);
-                    const txt = getTargetText(w);
+                    const txt = getTargetText(getWord(id), currentLang);
                     if (!txt) return null;
-                    const isDone = pairsMatched.includes(id);
-                    const isSel = pairsSel?.side === 'L' && pairsSel?.id === id;
+                    const isDone = pairs.matched.includes(id);
+                    const isSel = pairs.selection?.side === 'L' && pairs.selection?.id === id;
 
                     let cls = 'pb';
                     if (isDone) cls += ' done';
@@ -457,11 +432,10 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
                 <div>
                   {pairsRight.map((id) => {
-                    const w = getPracticeWord(id);
-                    const txt = getRussianText(w);
+                    const txt = getRussianText(getWord(id));
                     if (!txt) return null;
-                    const isDone = pairsMatched.includes(id);
-                    const isSel = pairsSel?.side === 'R' && pairsSel?.id === id;
+                    const isDone = pairs.matched.includes(id);
+                    const isSel = pairs.selection?.side === 'R' && pairs.selection?.id === id;
 
                     let cls = 'pb';
                     if (isDone) cls += ' done';
@@ -492,7 +466,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
               <button
                 className="btn sun big"
-                onClick={() => audioService.speak(getTargetText(currentQuizWord), currentLang)}
+                onClick={() => audioService.speak(getTargetText(currentQuizWord, currentLang), currentLang)}
                 style={{ fontSize: '24px', padding: '20px 36px', margin: '14px 0' }}
               >
                 🔊 Прослушать ещё раз

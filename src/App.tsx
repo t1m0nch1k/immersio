@@ -1,18 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserState, Word, Lesson, LanguageCode } from './types';
 import { LESSONS } from './data/lessons';
 import { LANGUAGES } from './data/languages';
 import { StorageService } from './services/storageService';
 import { audioService } from './services/audioService';
+import { toastService } from './services/toastService';
 
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { LessonList } from './components/LessonList';
-import { GrammarView } from './components/GrammarView';
-import { AlphabetView } from './components/AlphabetView';
 import { WordCardModal } from './components/WordCardModal';
 import { AuthModal } from './components/AuthModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { MobileNav } from './components/MobileNav';
+import { Route } from './routes';
 
+// The grammar and alphabet datasets cover all eight languages, so they are
+// loaded on demand instead of shipping in the entry chunk.
+const GrammarView = React.lazy(() => import('./components/GrammarView').then((module) => ({ default: module.GrammarView })));
+const AlphabetView = React.lazy(() => import('./components/AlphabetView').then((module) => ({ default: module.AlphabetView })));
 const ReaderView = React.lazy(() => import('./components/ReaderView').then((module) => ({ default: module.ReaderView })));
 const CustomTextImport = React.lazy(() => import('./components/CustomTextImport').then((module) => ({ default: module.CustomTextImport })));
 const PracticeView = React.lazy(() => import('./components/PracticeView').then((module) => ({ default: module.PracticeView })));
@@ -22,9 +28,39 @@ const DictView = React.lazy(() => import('./components/DictView').then((module) 
 const ProfileView = React.lazy(() => import('./components/ProfileView').then((module) => ({ default: module.ProfileView })));
 const OnboardingModal = React.lazy(() => import('./components/OnboardingModal').then((module) => ({ default: module.OnboardingModal })));
 
+const BACKGROUND_LETTER_COUNT = 16;
+
+interface BackgroundLetters {
+  letter: string;
+  left: number;
+  top: number;
+  fontSize: number;
+  duration: number;
+  delay: number;
+}
+
+const buildBackgroundLetters = (lang: LanguageCode): BackgroundLetters[] => {
+  const letters = (LANGUAGES[lang] || LANGUAGES.en).bgLetters;
+  return Array.from({ length: BACKGROUND_LETTER_COUNT }, (_, index) => ({
+    letter: letters[index % letters.length],
+    left: Math.random() * 96,
+    top: Math.random() * 92,
+    fontSize: 26 + Math.random() * 54,
+    duration: 9 + Math.random() * 12,
+    delay: Math.random() * 10,
+  }));
+};
+
+const RouteFallback: React.FC = () => (
+  <div className="view">
+    <div className="overline">загрузка раздела</div>
+    <h1 className="display">Подготавливаем материалы…</h1>
+  </div>
+);
+
 export const App: React.FC = () => {
   const [userState, setUserState] = useState<UserState>(() => StorageService.load());
-  const [currentRoute, setCurrentRoute] = useState<string>('lessons');
+  const [currentRoute, setCurrentRoute] = useState<Route>('lessons');
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
 
   // Word Popup Card State
@@ -39,18 +75,21 @@ export const App: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastMessage(msg);
     toastTimerRef.current = setTimeout(() => {
       setToastMessage(null);
       toastTimerRef.current = null;
     }, 2800);
-  };
+  }, []);
 
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
+
+  // Screens publish achievement and reward notifications through the bus.
+  useEffect(() => toastService.subscribe(showToast), [showToast]);
 
   // Sync dark mode setting to body attribute
   useEffect(() => {
@@ -66,64 +105,55 @@ export const App: React.FC = () => {
     audioService.setSoundEnabled(userState.soundEnabled);
   }, [userState.soundEnabled]);
 
-  // Background floating letters generator
-  useEffect(() => {
-    const box = document.getElementById('bgletters');
-    if (!box) return;
-
-    box.innerHTML = '';
-    const currentLangObj = LANGUAGES[userState.currentLang] || LANGUAGES.en;
-    const letters = currentLangObj.bgLetters;
-
-    for (let i = 0; i < 16; i++) {
-      const span = document.createElement('span');
-      span.textContent = letters[i % letters.length];
-      span.style.left = `${Math.random() * 96}%`;
-      span.style.top = `${Math.random() * 92}%`;
-      span.style.fontSize = `${26 + Math.random() * 54}px`;
-      span.style.animationDuration = `${9 + Math.random() * 12}s`;
-      span.style.animationDelay = `-${Math.random() * 10}s`;
-      box.appendChild(span);
-    }
-  }, [userState.currentLang]);
+  // Background floating letters, recomputed only when the language changes.
+  const backgroundLetters = useMemo(
+    () => buildBackgroundLetters(userState.currentLang),
+    [userState.currentLang]
+  );
 
   // Navigation handler
-  const handleNavigate = (route: string) => {
+  const handleNavigate = useCallback((route: Route) => {
     setPopupWord(null);
     setCurrentRoute(route);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, []);
 
-  const handleOpenLesson = (lessonId: string) => {
+  const handleOpenLesson = useCallback((lessonId: string) => {
     setPopupWord(null);
     setActiveLessonId(lessonId);
     setCurrentRoute('reader');
     window.scrollTo({ top: 0 });
-  };
+  }, []);
 
-  const handleSelectLang = (code: LanguageCode) => {
+  const handleSelectLang = useCallback((code: LanguageCode) => {
     StorageService.ensureLangProgress(userState, code);
     userState.currentLang = code;
     StorageService.save(userState);
     setUserState({ ...userState });
     showToast(`Переключено на: ${LANGUAGES[code].flag} ${LANGUAGES[code].name}`);
-  };
+  }, [userState, showToast]);
 
-  const handleToggleDarkMode = () => {
+  const handleToggleDarkMode = useCallback(() => {
     userState.darkMode = !userState.darkMode;
     StorageService.save(userState);
     setUserState({ ...userState });
-  };
+  }, [userState]);
 
-  const handleUpdateImmersion = (val: number) => {
+  const handleToggleSound = useCallback(() => {
+    userState.soundEnabled = !userState.soundEnabled;
+    StorageService.save(userState);
+    setUserState({ ...userState });
+  }, [userState]);
+
+  const handleUpdateImmersion = useCallback((val: number) => {
     const langProg = StorageService.ensureLangProgress(userState, userState.currentLang);
     langProg.immersion = val;
     StorageService.save(userState);
     StorageService.checkAndUnlockAchievements(userState, showToast);
     setUserState({ ...userState });
-  };
+  }, [userState, showToast]);
 
-  const handleLearnWord = (wordId: string) => {
+  const handleLearnWord = useCallback((wordId: string) => {
     const lang = userState.currentLang;
     const langProg = StorageService.ensureLangProgress(userState, lang);
     // Store the canonical dictionary id exactly once. A popup can be opened
@@ -135,72 +165,111 @@ export const App: React.FC = () => {
     // learned words, otherwise practice can receive an empty dictionary item.
     if (!canonicalWordId || canonicalWordId.startsWith('w_')) return;
     if (canonicalWordId && !langProg.learnedWords.includes(canonicalWordId)) {
-      const updatedLearned = [...langProg.learnedWords, canonicalWordId];
       const updatedProg = {
         ...langProg,
-        learnedWords: updatedLearned,
-      };
-      const updatedLanguages = {
-        ...userState.languages,
-        [lang]: updatedProg,
+        learnedWords: [...langProg.learnedWords, canonicalWordId],
       };
       const updatedState: UserState = {
         ...userState,
         xp: userState.xp + 2,
-        languages: updatedLanguages,
+        languages: { ...userState.languages, [lang]: updatedProg },
       };
       StorageService.save(updatedState);
       StorageService.checkAndUnlockAchievements(updatedState, showToast);
       setUserState(updatedState);
-      showToast(`Слово добавлено в словарь! (+2 XP)`);
+      showToast('Слово добавлено в словарь! (+2 XP)');
     }
-  };
+  }, [userState, showToast]);
 
-  const handleForgetWord = (wordId: string) => {
+  const handleForgetWord = useCallback((wordId: string) => {
     const lang = userState.currentLang;
     const langProg = StorageService.ensureLangProgress(userState, lang);
-    const updatedLearned = langProg.learnedWords.filter((id) => id !== wordId);
+    // Drop the scheduling record too, otherwise forgotten words leave orphan
+    // SRS entries behind forever and keep growing the persisted state.
+    const { [wordId]: _droppedSrs, ...remainingSrs } = langProg.srsData;
     const updatedProg = {
       ...langProg,
-      learnedWords: updatedLearned,
-    };
-    const updatedLanguages = {
-      ...userState.languages,
-      [lang]: updatedProg,
+      learnedWords: langProg.learnedWords.filter((id) => id !== wordId),
+      srsData: remainingSrs,
     };
     const updatedState: UserState = {
       ...userState,
-      languages: updatedLanguages,
+      languages: { ...userState.languages, [lang]: updatedProg },
     };
     StorageService.save(updatedState);
     setUserState(updatedState);
     setPopupWord(null);
     showToast('Слово удалено из словаря');
-  };
+  }, [userState, showToast]);
 
-  const handleSaveCustomLesson = (customLesson: Lesson) => {
+  const handleSaveCustomLesson = useCallback((customLesson: Lesson) => {
     setActiveLessonId(customLesson.id);
     setCurrentRoute('reader');
     setUserState({ ...userState });
     showToast(`Свой урок «${customLesson.title}» создан! 🎉`);
-  };
+  }, [userState, showToast]);
 
-  const handleResetProgress = () => {
+  const handleResetProgress = useCallback(() => {
     if (window.confirm('Точно сбросить весь прогресс? Это действие необратимо.')) {
       StorageService.reset();
       window.location.reload();
     }
-  };
+  }, []);
+
+  const handleOpenWordPopup = useCallback((word: Word, rect: DOMRect) => {
+    // WordCardModal clamps the card against the viewport once it has measured
+    // itself, so only the anchor point needs a sane initial guess here.
+    const x = Math.min(Math.max(12, rect.left + rect.width / 2 - 140), window.innerWidth - 292);
+    let y = rect.bottom + 10;
+    if (y + 230 > window.innerHeight) {
+      y = Math.max(10, rect.top - 240);
+    }
+    setPopupWord({ word, position: { left: x, top: y } });
+  }, []);
+
+  const handleClosePopup = useCallback(() => setPopupWord(null), []);
+  const handleOpenAuth = useCallback(() => setShowAuthModal(true), []);
+  const handleCloseAuth = useCallback(() => setShowAuthModal(false), []);
+  const handleNavigateCustom = useCallback(() => handleNavigate('custom'), [handleNavigate]);
+  const handleOpenRetake = useCallback(() => {
+    setIsRetakeOnly(true);
+    setShowOnboarding(true);
+  }, []);
 
   // Find active lesson object
-  const allLessons = [...LESSONS, ...userState.customLessons];
-  const activeLesson = allLessons.find((l) => l.id === activeLessonId) || LESSONS[0];
-  const currentLangProg = StorageService.getLangProgress(userState, userState.currentLang);
-  const isPopupWordLearned = popupWord ? currentLangProg.learnedWords.includes(popupWord.word.id) : false;
+  const allLessons = useMemo(
+    () => [...LESSONS, ...userState.customLessons],
+    [userState.customLessons]
+  );
+  const activeLesson = useMemo(
+    () => allLessons.find((l) => l.id === activeLessonId) || LESSONS[0],
+    [allLessons, activeLessonId]
+  );
+  const isPopupWordLearned = useMemo(
+    () => (popupWord
+      ? StorageService.getLangProgress(userState, userState.currentLang).learnedWords.includes(popupWord.word.id)
+      : false),
+    [popupWord, userState]
+  );
 
   return (
-    <div onClick={() => setPopupWord(null)}>
-      <div id="bgletters"></div>
+    <div onClick={handleClosePopup}>
+      <div id="bgletters" aria-hidden="true">
+        {backgroundLetters.map((item, index) => (
+          <span
+            key={index}
+            style={{
+              left: `${item.left}%`,
+              top: `${item.top}%`,
+              fontSize: `${item.fontSize}px`,
+              animationDuration: `${item.duration}s`,
+              animationDelay: `-${item.delay}s`,
+            }}
+          >
+            {item.letter}
+          </span>
+        ))}
+      </div>
 
       {/* Header */}
       <Header
@@ -208,7 +277,8 @@ export const App: React.FC = () => {
         onNavigate={handleNavigate}
         onSelectLang={handleSelectLang}
         onToggleDarkMode={handleToggleDarkMode}
-        onOpenAuth={() => setShowAuthModal(true)}
+        onToggleSound={handleToggleSound}
+        onOpenAuth={handleOpenAuth}
       />
 
       {/* Layout Shell */}
@@ -222,201 +292,105 @@ export const App: React.FC = () => {
         />
 
         {/* Main Content Router */}
-        <React.Suspense fallback={<div className="view route-loading"><div className="overline">загрузка раздела</div><h1 className="display">Подготавливаем материалы…</h1></div>}>
         <main>
-          {currentRoute === 'lessons' && (
-            <LessonList
-              userState={userState}
-              lessons={LESSONS}
-              onOpenLesson={handleOpenLesson}
-              onNavigateCustom={() => handleNavigate('custom')}
-              onUpdateState={(updated) => setUserState({ ...updated })}
-              onNavigate={handleNavigate}
-            />
-          )}
+          <ErrorBoundary resetKey={currentRoute}>
+            <React.Suspense fallback={<RouteFallback />}>
+              {currentRoute === 'lessons' && (
+                <LessonList
+                  userState={userState}
+                  lessons={LESSONS}
+                  onOpenLesson={handleOpenLesson}
+                  onNavigateCustom={handleNavigateCustom}
+                  onUpdateState={(updated) => setUserState({ ...updated })}
+                  onNavigate={handleNavigate}
+                />
+              )}
 
-          {currentRoute === 'reader' && (
-            <ReaderView
-              lesson={activeLesson}
-              userState={userState}
-              onNavigate={handleNavigate}
-              onLearnWord={handleLearnWord}
-              onForgetWord={handleForgetWord}
-              onOpenWordPopup={(word, rect) => {
-                let x = Math.min(Math.max(12, rect.left + rect.width / 2 - 140), window.innerWidth - 290);
-                let y = rect.bottom + 10;
-                if (y + 230 > window.innerHeight) {
-                  y = Math.max(10, rect.top - 240);
-                }
-                setPopupWord({ word, position: { left: x, top: y } });
-              }}
-              onUpdateState={(updated) => setUserState({ ...updated })}
-            />
-          )}
+              {currentRoute === 'reader' && (
+                <ReaderView
+                  lesson={activeLesson}
+                  userState={userState}
+                  onNavigate={handleNavigate}
+                  onLearnWord={handleLearnWord}
+                  onOpenWordPopup={handleOpenWordPopup}
+                  onUpdateState={(updated) => setUserState({ ...updated })}
+                />
+              )}
 
-          {currentRoute === 'custom' && (
-            <CustomTextImport
-              userState={userState}
-              onSaveCustomLesson={handleSaveCustomLesson}
-              onNavigate={handleNavigate}
-            />
-          )}
+              {currentRoute === 'custom' && (
+                <CustomTextImport
+                  userState={userState}
+                  onSaveCustomLesson={handleSaveCustomLesson}
+                  onNavigate={handleNavigate}
+                />
+              )}
 
-          {currentRoute === 'practice' && (
-            <PracticeView
-              userState={userState}
-              onUpdateState={(updated) => setUserState({ ...updated })}
-              onNavigate={handleNavigate}
-            />
-          )}
+              {currentRoute === 'practice' && (
+                <PracticeView
+                  userState={userState}
+                  onUpdateState={(updated) => setUserState({ ...updated })}
+                  onNavigate={handleNavigate}
+                />
+              )}
 
-          {currentRoute === 'sprint' && (
-            <WordSprintView
-              userState={userState}
-              onUpdateState={(updated) => setUserState({ ...updated })}
-              onNavigate={handleNavigate}
-            />
-          )}
+              {currentRoute === 'sprint' && (
+                <WordSprintView
+                  userState={userState}
+                  onUpdateState={(updated) => setUserState({ ...updated })}
+                  onNavigate={handleNavigate}
+                />
+              )}
 
-          {currentRoute === 'listening' && (
-            <ListeningView
-              userState={userState}
-              onUpdateState={(updated) => setUserState({ ...updated })}
-              onNavigate={handleNavigate}
-            />
-          )}
+              {currentRoute === 'listening' && (
+                <ListeningView
+                  userState={userState}
+                  onUpdateState={(updated) => setUserState({ ...updated })}
+                  onNavigate={handleNavigate}
+                />
+              )}
 
-          {currentRoute === 'dict' && (
-            <DictView
-              userState={userState}
-              onNavigate={handleNavigate}
-              onLearnWord={handleLearnWord}
-              onForgetWord={handleForgetWord}
-            />
-          )}
+              {currentRoute === 'dict' && (
+                <DictView
+                  userState={userState}
+                  onNavigate={handleNavigate}
+                  onLearnWord={handleLearnWord}
+                  onForgetWord={handleForgetWord}
+                />
+              )}
 
-          {currentRoute === 'dict-all' && (
-            <DictView
-              userState={userState}
-              showAllWords
-              onNavigate={handleNavigate}
-              onLearnWord={handleLearnWord}
-              onForgetWord={handleForgetWord}
-            />
-          )}
+              {currentRoute === 'dict-all' && (
+                <DictView
+                  userState={userState}
+                  showAllWords
+                  onNavigate={handleNavigate}
+                  onLearnWord={handleLearnWord}
+                  onForgetWord={handleForgetWord}
+                />
+              )}
 
-          {currentRoute === 'grammar' && (
-            <GrammarView key={userState.currentLang} userState={userState} onNavigate={handleNavigate} onUpdateState={(updated) => setUserState({ ...updated })} />
-          )}
+              {currentRoute === 'grammar' && (
+                <GrammarView key={userState.currentLang} userState={userState} onNavigate={handleNavigate} onUpdateState={(updated) => setUserState({ ...updated })} />
+              )}
 
-          {currentRoute === 'alphabet' && (
-            <AlphabetView userState={userState} onNavigate={handleNavigate} />
-          )}
+              {currentRoute === 'alphabet' && (
+                <AlphabetView userState={userState} onNavigate={handleNavigate} />
+              )}
 
-          {currentRoute === 'profile' && (
-            <ProfileView
-              userState={userState}
-              onUpdateState={(updated) => setUserState({ ...updated })}
-              onRetakeTest={() => {
-                setIsRetakeOnly(true);
-                setShowOnboarding(true);
-              }}
-              onResetProgress={handleResetProgress}
-              onOpenAuth={() => setShowAuthModal(true)}
-            />
-          )}
+              {currentRoute === 'profile' && (
+                <ProfileView
+                  userState={userState}
+                  onUpdateState={(updated) => setUserState({ ...updated })}
+                  onRetakeTest={handleOpenRetake}
+                  onResetProgress={handleResetProgress}
+                  onOpenAuth={handleOpenAuth}
+                />
+              )}
+            </React.Suspense>
+          </ErrorBoundary>
         </main>
-        </React.Suspense>
       </div>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <nav className="mbar">
-        <button
-          className={currentRoute === 'lessons' ? 'active' : ''}
-          onClick={() => handleNavigate('lessons')}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13z" />
-          </svg>
-          Уроки
-        </button>
-
-        <button
-          className={currentRoute === 'practice' ? 'active' : ''}
-          onClick={() => handleNavigate('practice')}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="9" />
-            <circle cx="12" cy="12" r="4" />
-          </svg>
-          Практика
-        </button>
-
-        <button
-          className={currentRoute === 'listening' ? 'active' : ''}
-          onClick={() => handleNavigate('listening')}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 13a8 8 0 0 1 16 0" />
-            <path d="M4 13v4a2 2 0 0 0 2 2h1v-7H6a2 2 0 0 0-2 2zM20 13v4a2 2 0 0 1-2 2h-1v-7h1a2 2 0 0 1 2 2z" />
-            <path d="M12 5v2" />
-          </svg>
-          Слушание
-        </button>
-
-        <button
-          className={currentRoute === 'dict' || currentRoute === 'dict-all' ? 'active' : ''}
-          onClick={() => handleNavigate('dict')}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 6c-2-1.8-5-2-8-2v14c3 0 6 .2 8 2 2-1.8 5-2 8-2V4c-3 0-6 .2-8 2z" />
-          </svg>
-          Словарь
-        </button>
-
-        <button
-          className={currentRoute === 'grammar' ? 'active' : ''}
-          onClick={() => handleNavigate('grammar')}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v14H6.5A2.5 2.5 0 0 0 4 19.5z" />
-            <path d="M8 7h8M8 11h6" />
-          </svg>
-          Грамматика
-        </button>
-
-        <button
-          className={currentRoute === 'alphabet' ? 'active' : ''}
-          onClick={() => handleNavigate('alphabet')}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 19 9 5l5 14M6 14h6" />
-            <path d="M16 5h4M18 5v14M15 19h6" />
-          </svg>
-          Алфавит
-        </button>
-
-        <button
-          className={currentRoute === 'custom' ? 'active' : ''}
-          onClick={() => handleNavigate('custom')}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-          </svg>
-          Свой текст
-        </button>
-
-        <button
-          className={currentRoute === 'profile' ? 'active' : ''}
-          onClick={() => handleNavigate('profile')}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21c1.5-4 5-5.5 8-5.5s6.5 1.5 8 5.5" />
-          </svg>
-          Профиль
-        </button>
-      </nav>
+      <MobileNav currentRoute={currentRoute} onNavigate={handleNavigate} />
 
       {/* Floating Word Card Popup */}
       {popupWord && (
@@ -425,35 +399,31 @@ export const App: React.FC = () => {
           position={popupWord.position}
           isLearned={isPopupWordLearned}
           currentLang={userState.currentLang}
-          onLearn={(wordId) => {
-            handleLearnWord(wordId);
-            setPopupWord(null);
-          }}
-          onForget={(wordId) => {
-            handleForgetWord(wordId);
-            setPopupWord(null);
-          }}
-          onClose={() => setPopupWord(null)}
+          onLearn={handleLearnWord}
+          onForget={handleForgetWord}
+          onClose={handleClosePopup}
         />
       )}
 
       {/* Onboarding Modal */}
       {showOnboarding && (
-        <React.Suspense fallback={null}>
-          <OnboardingModal
-            userState={userState}
-            isRetakeOnly={isRetakeOnly}
-            onComplete={(newState) => {
-              setUserState({ ...newState });
-              setShowOnboarding(false);
-              setIsRetakeOnly(false);
-            }}
-            onClose={() => {
-              setShowOnboarding(false);
-              setIsRetakeOnly(false);
-            }}
-          />
-        </React.Suspense>
+        <ErrorBoundary resetKey={`onboarding-${currentRoute}`}>
+          <React.Suspense fallback={null}>
+            <OnboardingModal
+              userState={userState}
+              isRetakeOnly={isRetakeOnly}
+              onComplete={(newState) => {
+                setUserState({ ...newState });
+                setShowOnboarding(false);
+                setIsRetakeOnly(false);
+              }}
+              onClose={() => {
+                setShowOnboarding(false);
+                setIsRetakeOnly(false);
+              }}
+            />
+          </React.Suspense>
+        </ErrorBoundary>
       )}
 
       {/* Auth Modal */}
@@ -461,7 +431,7 @@ export const App: React.FC = () => {
         <AuthModal
           userState={userState}
           onUpdateState={(updated) => setUserState({ ...updated })}
-          onClose={() => setShowAuthModal(false)}
+          onClose={handleCloseAuth}
           onShowToast={showToast}
         />
       )}

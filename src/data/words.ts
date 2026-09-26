@@ -5,8 +5,8 @@ import { EXPANDED_WORDS } from './expandedWords';
 
 export const BASE_WORDS: Word[] = [
   // Основа & Люди
-  { id: 'hello', ru: 'привет', en: 'hello', es: 'hola', de: 'hallo', fr: 'bonjour', it: 'ciao', ja: 'こんにちは', lvl: 1, cat: 'основа', exampleRu: 'Привет, как дела?', exampleEn: 'Hello, how are you?' },
-  { id: 'friend', ru: 'друг', en: 'friend', es: 'amigo', de: 'Freund', fr: 'ami', it: 'amico', ja: '友達', lvl: 1, cat: 'люди', exampleRu: 'Мой лучший друг.', exampleEn: 'My best friend.' },
+  { id: 'hello', ru: 'привет', en: 'hello', es: 'hola', de: 'hallo', fr: 'bonjour', it: 'ciao', ja: 'こんにちは', lvl: 1, cat: 'основа', exampleRu: 'Привет, как дела?' },
+  { id: 'friend', ru: 'друг', en: 'friend', es: 'amigo', de: 'Freund', fr: 'ami', it: 'amico', ja: '友達', lvl: 1, cat: 'люди', exampleRu: 'Мой лучший друг.' },
   { id: 'family', ru: 'семья', en: 'family', es: 'familia', de: 'Familie', fr: 'famille', it: 'famiglia', ja: '家族', lvl: 1, cat: 'люди' },
   { id: 'mother', ru: 'мама', en: 'mother', es: 'madre', de: 'Mutter', fr: 'mère', it: 'madre', ja: 'お母さん', lvl: 1, cat: 'люди' },
   { id: 'father', ru: 'папа', en: 'father', es: 'padre', de: 'Vater', fr: 'père', it: 'padre', ja: 'お父さん', lvl: 1, cat: 'люди' },

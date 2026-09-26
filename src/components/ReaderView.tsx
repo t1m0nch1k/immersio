@@ -1,37 +1,143 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Lesson, UserState, Word } from '../types';
-import { WORD_MAP, WORDS } from '../data/words';
 import { LANGUAGES } from '../data/languages';
 import { StorageService, getLocalDateKey } from '../services/storageService';
+import { toastService } from '../services/toastService';
 import { audioService } from '../services/audioService';
 import {
   getImmersionStats,
+  ImmersionToken,
   selectImmersionTokenKeys,
   tokenizeLessonSentence,
   tokenizeForeignSentence,
-  GRAMMAR_WORD_MAP,
 } from '../services/immersionService';
 import { getImmersionProfile, IMMERSION_PRESETS } from '../services/immersionProfile';
 import { getImmersiveLessonText } from '../data/immersiveTranslations';
+import { shuffle } from '../utils';
+import { buildRussianDistractors, buildTargetDistractors, getRussianText, getTargetText, getWord } from '../utils/words';
 import confetti from 'canvas-confetti';
+import { createSeededRandom } from './seededRandom';
+import { PairSide, usePairsMatching } from './usePairsMatching';
+import { Route } from '../routes';
 
 interface ReaderViewProps {
   lesson: Lesson;
   userState: UserState;
-  onNavigate: (route: string) => void;
-  onLearnWord: (wordId: string) => void;
-  onForgetWord: (wordId: string) => void;
+  onNavigate: (route: Route) => void;
+  /**
+   * Accepted but unused here: the reader learns and forgets words exclusively
+   * through the word popup, which lives in `App.tsx` and owns both callbacks.
+   * The two props are part of the type because `App.tsx` passes them to this
+   * call site; dropping them requires a change in that file.
+   */
+  onLearnWord?: (wordId: string) => void;
+  onForgetWord?: (wordId: string) => void;
   onOpenWordPopup: (word: Word, rect: DOMRect) => void;
   onUpdateState: (newState: UserState) => void;
 }
 
 type ReadMode = 'immersion' | 'original' | 'russian';
 
+/** How many concept words feed each of the three lesson exercises. */
+const MCQ_LIMIT = 5;
+const PAIRS_LIMIT = 6;
+const FILL_LIMIT = 3;
+/** Wrong answers added on top of the correct one in every option list. */
+const OPTION_DISTRACTORS = 3;
+/** Score in percent a lesson must reach to be counted as passed. */
+const PASS_PERCENT = 65;
+
+interface OriginalSentenceProps {
+  tokens: ImmersionToken[];
+  ruSentence: string;
+  showRu: boolean;
+  learnedSet: Set<string>;
+  onWordClick: (
+    event: React.MouseEvent<HTMLButtonElement>,
+    wordId: string | undefined,
+    text: string
+  ) => void;
+}
+
+/**
+ * One fully target-language sentence: every token is a button that opens the
+ * word popup, and the Russian source line is an optional sub-caption.
+ *
+ * Rendered by both the "Оригинал" tab and the 100% immersion mode, which
+ * previously carried two identical copies of this markup.
+ */
+const OriginalSentence = React.memo(function OriginalSentence({
+  tokens,
+  ruSentence,
+  showRu,
+  learnedSet,
+  onWordClick,
+}: OriginalSentenceProps) {
+  return (
+    <div className="original-sentence-block">
+      <p className="original-sentence-text">
+        {tokens.map((token) => {
+          if (token.kind === 'separator') {
+            return (
+              <span key={token.key} className={`sep ${token.isPunctuation ? 'punct' : ''}`}>
+                {token.text}
+              </span>
+            );
+          }
+
+          const effectiveWordId = token.wordId || `w_${token.text.toLowerCase()}`;
+          const word = token.wordId ? getWord(token.wordId) : undefined;
+          const isKnown = (word ? learnedSet.has(word.id) : false) || learnedSet.has(effectiveWordId);
+
+          return (
+            <button
+              key={token.key}
+              className={`tk ${isKnown ? 'known' : 'new'}`}
+              onClick={(e) => onWordClick(e, word?.id || effectiveWordId, token.text)}
+              title={word ? `Перевод: ${word.ru}` : 'Нажмите для перевода и озвучки'}
+            >
+              {token.text}
+            </button>
+          );
+        })}
+      </p>
+      {showRu && ruSentence && <div className="original-sentence-ru">{ruSentence}</div>}
+    </div>
+  );
+});
+
+interface OriginalSentencesProps extends Omit<OriginalSentenceProps, 'tokens' | 'ruSentence'> {
+  tokensBySentence: ImmersionToken[][];
+  ruSentences: string[];
+}
+
+const OriginalSentences = React.memo(function OriginalSentences({
+  tokensBySentence,
+  ruSentences,
+  showRu,
+  learnedSet,
+  onWordClick,
+}: OriginalSentencesProps) {
+  return (
+    <>
+      {tokensBySentence.map((tokens, sIdx) => (
+        <OriginalSentence
+          key={sIdx}
+          tokens={tokens}
+          ruSentence={ruSentences[sIdx] || ''}
+          showRu={showRu}
+          learnedSet={learnedSet}
+          onWordClick={onWordClick}
+        />
+      ))}
+    </>
+  );
+});
+
 export const ReaderView: React.FC<ReaderViewProps> = ({
   lesson,
   userState,
   onNavigate,
-  onLearnWord,
   onOpenWordPopup,
   onUpdateState,
 }) => {
@@ -39,7 +145,10 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const langProg = StorageService.getLangProgress(userState, currentLang);
   const learnedSet = useMemo(
     () => new Set(langProg.learnedWords),
-    [langProg.learnedWords, userState.xp, userState.languages]
+    // Only the id array can change this set. `userState.xp` and
+    // `userState.languages` were never read here, and `userState` is mutated in
+    // place, so listing them only forced useless recomputations.
+    [langProg.learnedWords]
   );
   const immersionProfile = getImmersionProfile(langProg.immersion);
 
@@ -57,12 +166,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const [mcqScore, setMcqScore] = useState<number>(0);
   const [mcqDone, setMcqDone] = useState(false);
 
-  const [pairsMatched, setPairsMatched] = useState<string[]>([]);
-  const [pairsSel, setPairsSel] = useState<{ side: 'L' | 'R'; id: string } | null>(null);
-  const [pairsErrors, setPairsErrors] = useState<number>(0);
-  const [pairsScore, setPairsScore] = useState<number>(0);
-  const [pairsDone, setPairsDone] = useState(false);
-
   const [fillAnswers, setFillAnswers] = useState<Record<number, string>>({});
   const [fillScore, setFillScore] = useState<number>(0);
   const [fillDone, setFillDone] = useState(false);
@@ -75,24 +178,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     xpGained: number;
     streakMessage: string;
   } | null>(null);
-
-  // Helper to shuffle arrays stably
-  const shuffle = <T,>(arr: T[]): T[] => {
-    const copy = [...arr];
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy;
-  };
-
-  const getReaderWord = (wordId: string): Word | undefined =>
-    WORD_MAP[wordId] || GRAMMAR_WORD_MAP[wordId];
-
-  const getTargetText = (word: Word | undefined): string =>
-    (word ? (word[currentLang] || word.en) : '').trim();
-
-  const getRussianText = (word: Word | undefined): string => (word?.ru || '').trim();
 
   // 1. Tokenize lesson sentences with clean spacing and full vocabulary awareness
   const sentenceTokens = useMemo(
@@ -120,74 +205,90 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     );
   }, [localizedSentences, currentLang]);
 
+  // Russian source line for every original sentence, reused by both reading modes
+  const ruSentences = useMemo(
+    () => sentenceTokens.map((tokens) => tokens.map((token) => token.text).join('')),
+    [sentenceTokens]
+  );
+
   // Concept words for exercises
   const conceptIds = useMemo(() => {
     const ids = new Set<string>();
     sentenceTokens.flat().forEach((token) => {
-      const word = token.wordId ? getReaderWord(token.wordId) : undefined;
-      if (token.wordId && word && getTargetText(word) && getRussianText(word)) ids.add(token.wordId);
+      if (!token.wordId) return;
+      const word = getWord(token.wordId);
+      if (word && getTargetText(word, currentLang) && getRussianText(word)) ids.add(token.wordId);
     });
     return Array.from(ids);
-  }, [sentenceTokens]);
+    // `currentLang` is read through `getTargetText`, so switching the language on
+    // the same lesson has to rebuild the exercise vocabulary as well.
+  }, [sentenceTokens, currentLang]);
 
   // Precompute static MCQ Task Data
   const mcqQuestions = useMemo(() => {
-    const taskMcqIds = conceptIds.slice(0, 5);
-    return taskMcqIds.flatMap((wordId) => {
-      const word = getReaderWord(wordId);
-      const targetTxt = getTargetText(word);
+    return conceptIds.slice(0, MCQ_LIMIT).flatMap((wordId) => {
+      const word = getWord(wordId);
+      const targetTxt = getTargetText(word, currentLang);
       const correctRu = getRussianText(word);
       if (!word || !targetTxt || !correctRu) return [];
 
-      const pool = shuffle(
-        WORDS.filter((w) => {
-          const russianText = getRussianText(w);
-          return w.id !== wordId && russianText && russianText !== correctRu;
-        })
-      )
-        .map(getRussianText)
-        .filter((value, index, values) => values.indexOf(value) === index)
-        .slice(0, 3);
+      // One seeded source per question keeps the four buttons in the same order
+      // across every re-render and across StrictMode's double invocation.
+      const random = createSeededRandom(`${lesson.id}:${currentLang}:mcq:${wordId}`);
+      const distractors = buildRussianDistractors(correctRu, wordId, OPTION_DISTRACTORS, random);
 
-      return [{ wordId, targetTxt, correctRu, opts: shuffle([correctRu, ...pool]) }];
+      return [{ wordId, targetTxt, correctRu, opts: shuffle([correctRu, ...distractors], random) }];
     });
-  }, [conceptIds, currentLang]);
+  }, [conceptIds, currentLang, lesson.id]);
 
   // Precompute static Pairs Task Data
   const pairData = useMemo(() => {
-    const taskPairIds = conceptIds.slice(0, 6);
+    const taskPairIds = conceptIds.slice(0, PAIRS_LIMIT);
     return {
       taskPairIds,
       leftPairs: taskPairIds,
-      rightPairs: shuffle(taskPairIds),
+      rightPairs: shuffle(taskPairIds, createSeededRandom(`${lesson.id}:${currentLang}:pairs`)),
     };
-  }, [conceptIds]);
+  }, [conceptIds, currentLang, lesson.id]);
 
   // Precompute static Fill-in Blanks Task Data
   const fillQuestions = useMemo(() => {
-    const fillIds = conceptIds.slice(0, 3);
-    return fillIds.flatMap((wordId) => {
-      const word = getReaderWord(wordId);
-      const correctVal = getTargetText(word);
+    return conceptIds.slice(0, FILL_LIMIT).flatMap((wordId) => {
+      const word = getWord(wordId);
+      const correctVal = getTargetText(word, currentLang);
       const russianText = getRussianText(word);
       if (!word || !correctVal || !russianText) return [];
 
-      const pool = shuffle(
-        WORDS.filter((w) => {
-          const targetText = getTargetText(w);
-          return w.id !== wordId && targetText && targetText !== correctVal;
-        })
-      )
-        .map(getTargetText)
-        .filter((value, index, values) => values.indexOf(value) === index)
-        .slice(0, 3);
-      const opts = shuffle([correctVal, ...pool]);
+      const random = createSeededRandom(`${lesson.id}:${currentLang}:fill:${wordId}`);
+      const distractors = buildTargetDistractors(
+        correctVal,
+        wordId,
+        currentLang,
+        OPTION_DISTRACTORS,
+        random
+      );
 
-      return [{ wordId, correct: correctVal, ru: russianText, opts }];
+      return [{ wordId, correct: correctVal, ru: russianText, opts: shuffle([correctVal, ...distractors], random) }];
     });
-  }, [conceptIds, currentLang]);
+  }, [conceptIds, currentLang, lesson.id]);
 
   const totalQuestions = mcqQuestions.length + pairData.taskPairIds.length + fillQuestions.length;
+
+  const pairs = usePairsMatching(pairData.taskPairIds.length);
+  // Only a finished round contributes; before that the score stays at zero even
+  // if the learner already matched some pairs.
+  const pairsScore = useMemo(
+    () => (pairs.isDone ? Math.max(0, pairData.taskPairIds.length - pairs.errors) : 0),
+    [pairs.isDone, pairs.errors, pairData.taskPairIds.length]
+  );
+
+  // `App.tsx` passes a fresh inline arrow on every render, so the popup opener
+  // is read through a ref. That keeps `handleForeignWordClick` stable, which is
+  // what lets the memoized original sentences skip re-rendering.
+  const openWordPopupRef = useRef(onOpenWordPopup);
+  useEffect(() => {
+    openWordPopupRef.current = onOpenWordPopup;
+  }, [onOpenWordPopup]);
 
   // Handle in-reader immersion slider change
   const handleImmersionChange = (newVal: number) => {
@@ -200,33 +301,36 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   // Handle clicking word in text
   const handleTokenClick = (e: React.MouseEvent<HTMLButtonElement>, wordId: string) => {
     e.stopPropagation();
-    const word = WORD_MAP[wordId] || GRAMMAR_WORD_MAP[wordId];
+    const word = getWord(wordId);
     if (!word) return;
     const rect = e.currentTarget.getBoundingClientRect();
     onOpenWordPopup(word, rect);
   };
 
-  const handleForeignWordClick = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    wordId: string | undefined,
-    text: string
-  ) => {
-    e.stopPropagation();
-    let word = wordId ? (WORD_MAP[wordId] || GRAMMAR_WORD_MAP[wordId]) : undefined;
-    if (word) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      onOpenWordPopup(word, rect);
-    } else {
-      // Do not create a fake dictionary card with the foreign word as its
-      // Russian translation. Unknown tokens can still be pronounced, but
-      // they must not enter learnedWords and later produce empty quiz options.
-      audioService.speak(text, currentLang);
-    }
-  };
+  const handleForeignWordClick = useCallback(
+    (
+      e: React.MouseEvent<HTMLButtonElement>,
+      wordId: string | undefined,
+      text: string
+    ) => {
+      e.stopPropagation();
+      const word = wordId ? getWord(wordId) : undefined;
+      if (word) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        openWordPopupRef.current(word, rect);
+      } else {
+        // Do not create a fake dictionary card with the foreign word as its
+        // Russian translation. Unknown tokens can still be pronounced, but
+        // they must not enter learnedWords and later produce empty quiz options.
+        audioService.speak(text, currentLang);
+      }
+    },
+    [currentLang]
+  );
 
   const handleMcqSelect = (qIdx: number, wordId: string, chosenOpt: string) => {
     if (mcqAnswers[qIdx] !== undefined) return;
-    const word = getReaderWord(wordId);
+    const word = getWord(wordId);
     const isCorrect = Boolean(word && getRussianText(word) === chosenOpt);
 
     if (isCorrect) {
@@ -244,38 +348,18 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     }
   };
 
-  const handlePairClick = (side: 'L' | 'R', id: string) => {
-    if (pairsMatched.includes(id)) return;
-
-    if (!pairsSel) {
+  const handlePairClick = (side: PairSide, id: string) => {
+    const result = pairs.click(side, id);
+    if (result === 'ignored') return;
+    if (result === 'selected' || result === 'reselected') {
       audioService.playClick();
-      setPairsSel({ side, id });
       return;
     }
-
-    if (pairsSel.side === side) {
-      audioService.playClick();
-      setPairsSel({ side, id });
-      return;
-    }
-
-    // Match check
-    if (pairsSel.id === id) {
-      audioService.playSuccess();
-      const newMatched = [...pairsMatched, id];
-      setPairsMatched(newMatched);
-      setPairsSel(null);
-
-      if (newMatched.length === pairData.taskPairIds.length) {
-        setPairsDone(true);
-        const score = Math.max(0, pairData.taskPairIds.length - pairsErrors);
-        setPairsScore(score);
-      }
-    } else {
+    if (result === 'missed') {
       audioService.playError();
-      setPairsErrors((prev) => prev + 1);
-      setPairsSel(null);
+      return;
     }
+    audioService.playSuccess();
   };
 
   const handleFillSelect = (qIdx: number, correctVal: string, chosenOpt: string) => {
@@ -300,20 +384,26 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const handleFinishLesson = () => {
     const totalScore = mcqScore + pairsScore + fillScore;
     const pct = totalQuestions === 0 ? 100 : Math.round((totalScore / totalQuestions) * 100);
-    const pass = totalQuestions === 0 || pct >= 65;
+    const pass = totalQuestions === 0 || pct >= PASS_PERCENT;
 
     let xpGain = 0;
     let streakMsg = '';
 
+    // `ensureLangProgress` and the fields below are mutated in place; this is the
+    // project-wide pattern and the `{ ...userState }` copy at the end is what
+    // makes React and the achievement checks observe the new values.
     const currentProgress = StorageService.ensureLangProgress(userState, currentLang);
     const isFirstTime = !currentProgress.doneLessons[lesson.id];
 
     if (pass) {
-      if (pct === 100) {
-        userState.perfectCount += 1;
-      }
-
       if (isFirstTime) {
+        // perfectCount used to grow on every replay of a perfect lesson, so the
+        // counter no longer meant "lessons passed at 100%". It now follows the
+        // same first-attempt rule as doneLessons and the XP reward below.
+        if (pct === 100) {
+          userState.perfectCount += 1;
+        }
+
         currentProgress.doneLessons[lesson.id] = {
           score: totalScore,
           pct,
@@ -347,7 +437,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     }
 
     StorageService.save(userState);
-    StorageService.checkAndUnlockAchievements(userState, () => {});
+    StorageService.checkAndUnlockAchievements(userState, toastService.show);
     onUpdateState({ ...userState });
 
     setCompletedResult({
@@ -516,45 +606,13 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         {/* Lesson Interactive Reader Text */}
         <div className="text" style={{ marginTop: '18px' }}>
           {readMode === 'immersion' && langProg.immersion === 100 && originalTokens ? (
-            originalTokens.map((tokens, sIdx) => {
-              const ruSentence = sentenceTokens[sIdx]?.map((t) => t.text).join('') || '';
-
-              return (
-                <div key={sIdx} className="original-sentence-block">
-                  <p className="original-sentence-text">
-                    {tokens.map((token) => {
-                      if (token.kind === 'separator') {
-                        return (
-                          <span key={token.key} className={`sep ${token.isPunctuation ? 'punct' : ''}`}>
-                            {token.text}
-                          </span>
-                        );
-                      }
-
-                      const effectiveWordId = token.wordId || `w_${token.text.toLowerCase()}`;
-                      const word = token.wordId
-                        ? (WORD_MAP[token.wordId] || GRAMMAR_WORD_MAP[token.wordId])
-                        : undefined;
-                      const isKnown = (word ? learnedSet.has(word.id) : false) || learnedSet.has(effectiveWordId);
-
-                      return (
-                        <button
-                          key={token.key}
-                          className={`tk ${isKnown ? 'known' : 'new'}`}
-                          onClick={(e) => handleForeignWordClick(e, word?.id || effectiveWordId, token.text)}
-                          title={word ? `Перевод: ${word.ru}` : 'Нажмите для перевода и озвучки'}
-                        >
-                          {token.text}
-                        </button>
-                      );
-                    })}
-                  </p>
-                  {showSentenceRu && ruSentence && (
-                    <div className="original-sentence-ru">{ruSentence}</div>
-                  )}
-                </div>
-              );
-            })
+            <OriginalSentences
+              tokensBySentence={originalTokens}
+              ruSentences={ruSentences}
+              showRu={showSentenceRu}
+              learnedSet={learnedSet}
+              onWordClick={handleForeignWordClick}
+            />
           ) : readMode === 'immersion' ? (
             sentenceTokens.map((tokens, sIdx) => (
               <p key={sIdx} style={{ marginBottom: '1.1em' }}>
@@ -568,9 +626,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                   }
 
                   const isForeign = Boolean(token.wordId && token.target && foreignTokenKeys.has(token.key));
-                  const word = token.wordId
-                    ? (WORD_MAP[token.wordId] || GRAMMAR_WORD_MAP[token.wordId])
-                    : undefined;
+                  const word = token.wordId ? getWord(token.wordId) : undefined;
 
                   if (isForeign && word) {
                     const isKnown = learnedSet.has(word.id);
@@ -596,47 +652,25 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
             ))
           ) : null}
 
-          {readMode === 'original' &&
-            originalTokens &&
-            originalTokens.map((tokens, sIdx) => {
-              const ruSentence = sentenceTokens[sIdx]?.map((t) => t.text).join('') || '';
+          {readMode === 'original' && originalTokens && (
+            <OriginalSentences
+              tokensBySentence={originalTokens}
+              ruSentences={ruSentences}
+              showRu={showSentenceRu}
+              learnedSet={learnedSet}
+              onWordClick={handleForeignWordClick}
+            />
+          )}
 
-              return (
-                <div key={sIdx} className="original-sentence-block">
-                  <p className="original-sentence-text">
-                    {tokens.map((token) => {
-                      if (token.kind === 'separator') {
-                        return (
-                          <span key={token.key} className={`sep ${token.isPunctuation ? 'punct' : ''}`}>
-                            {token.text}
-                          </span>
-                        );
-                      }
-
-                      const effectiveWordId = token.wordId || `w_${token.text.toLowerCase()}`;
-                      const word = token.wordId
-                        ? (WORD_MAP[token.wordId] || GRAMMAR_WORD_MAP[token.wordId])
-                        : undefined;
-                      const isKnown = (word ? learnedSet.has(word.id) : false) || learnedSet.has(effectiveWordId);
-
-                      return (
-                        <button
-                          key={token.key}
-                          className={`tk ${isKnown ? 'known' : 'new'}`}
-                          onClick={(e) => handleForeignWordClick(e, word?.id || effectiveWordId, token.text)}
-                          title={word ? `Перевод: ${word.ru}` : 'Нажмите для перевода и озвучки'}
-                        >
-                          {token.text}
-                        </button>
-                      );
-                    })}
-                  </p>
-                  {showSentenceRu && ruSentence && (
-                    <div className="original-sentence-ru">{ruSentence}</div>
-                  )}
-                </div>
-              );
-            })}
+          {readMode === 'original' && originalTokens && (
+            <OriginalSentences
+              tokensBySentence={originalTokens}
+              ruSentences={ruSentences}
+              showRu={showSentenceRu}
+              learnedSet={learnedSet}
+              onWordClick={handleForeignWordClick}
+            />
+          )}
 
           {readMode === 'russian' &&
             sentenceTokens.map((tokens, sIdx) => (
@@ -742,10 +776,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
               <div className="pcols">
                 <div>
                   {pairData.leftPairs.map((wordId) => {
-                    const word = getReaderWord(wordId);
-                    const txt = getTargetText(word);
-                    const isDone = pairsMatched.includes(wordId);
-                    const isSel = pairsSel?.side === 'L' && pairsSel?.id === wordId;
+                    const txt = getTargetText(getWord(wordId), currentLang);
+                    const isDone = pairs.matched.includes(wordId);
+                    const isSel = pairs.selection?.side === 'L' && pairs.selection?.id === wordId;
 
                     let cls = 'pb';
                     if (isDone) cls += ' done';
@@ -766,10 +799,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
                 <div>
                   {pairData.rightPairs.map((wordId) => {
-                    const word = getReaderWord(wordId);
-                    const txt = getRussianText(word);
-                    const isDone = pairsMatched.includes(wordId);
-                    const isSel = pairsSel?.side === 'R' && pairsSel?.id === wordId;
+                    const txt = getRussianText(getWord(wordId));
+                    const isDone = pairs.matched.includes(wordId);
+                    const isSel = pairs.selection?.side === 'R' && pairs.selection?.id === wordId;
 
                     let cls = 'pb';
                     if (isDone) cls += ' done';
@@ -789,7 +821,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                 </div>
               </div>
               <div style={{ marginTop: '10px', fontSize: '13.5px', color: 'var(--ink2)', fontWeight: 700 }}>
-                соединено: {pairsMatched.length} / {pairData.taskPairIds.length}
+                соединено: {pairs.matched.length} / {pairData.taskPairIds.length}
               </div>
             </div>
           )}
@@ -840,7 +872,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
               className="btn coral big"
               disabled={
                 (mcqQuestions.length > 0 && !mcqDone) ||
-                (pairData.taskPairIds.length > 0 && !pairsDone) ||
+                (pairData.taskPairIds.length > 0 && !pairs.isDone) ||
                 (fillQuestions.length > 0 && !fillDone)
               }
               onClick={handleFinishLesson}
@@ -855,7 +887,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       {lessonCompleted && completedResult && (
         <div className="card" style={{ marginTop: '24px', textAlign: 'center', padding: '32px 24px' }}>
           <h2 style={{ fontFamily: 'Unbounded', fontSize: '26px', marginBottom: '8px' }}>
-            {completedResult.pct >= 65 ? 'Урок засчитан! 🎉' : 'Попробуй ещё раз 💪'}
+            {completedResult.pct >= PASS_PERCENT ? 'Урок засчитан! 🎉' : 'Попробуй ещё раз 💪'}
           </h2>
 
           <div style={{ fontSize: '42px', fontWeight: 800, color: 'var(--pine)', margin: '14px 0' }}>
@@ -863,7 +895,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
           </div>
 
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', margin: '16px 0' }}>
-            <span className={`chip ${completedResult.pct >= 65 ? 'sea' : 'coral'}`}>
+            <span className={`chip ${completedResult.pct >= PASS_PERCENT ? 'sea' : 'coral'}`}>
               верно {completedResult.score} из {completedResult.total}
             </span>
             {completedResult.xpGained > 0 && (

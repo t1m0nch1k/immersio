@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LanguageCode, ListeningItem, UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { audioService } from '../services/audioService';
@@ -10,11 +10,14 @@ import {
   recordListeningMinutes,
 } from '../services/listeningService';
 import { StorageService } from '../services/storageService';
+import { toastService } from '../services/toastService';
+import { LEVEL_LABELS } from '../utils';
+import { Route } from '../routes';
 
 interface ListeningViewProps {
   userState: UserState;
   onUpdateState: (newState: UserState) => void;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
 }
 
 type ListeningFilter = 'all' | 'audio' | 'video' | 'series' | 'audiobook';
@@ -27,12 +30,7 @@ const typeLabels: Record<ListeningFilter, string> = {
   audiobook: 'Аудиокниги',
 };
 
-const levelLabels: Record<ListeningItem['level'], string> = {
-  1: 'A1',
-  2: 'A2',
-  3: 'B1',
-  4: 'B2/C1',
-};
+const levelLabel = (level: ListeningItem['level']): string => LEVEL_LABELS[level - 1] ?? String(level);
 
 const formatTime = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
@@ -70,7 +68,7 @@ export const ListeningView: React.FC<ListeningViewProps> = ({ userState, onUpdat
   const progressPercent = Math.min(100, Math.round((progress.minutes / DAILY_LISTENING_MINUTES) * 100));
 
   const refreshState = () => {
-    StorageService.checkAndUnlockAchievements(userState, () => {});
+    StorageService.checkAndUnlockAchievements(userState, toastService.show);
     onUpdateState({ ...userState });
   };
 
@@ -78,32 +76,47 @@ export const ListeningView: React.FC<ListeningViewProps> = ({ userState, onUpdat
     const changed = recordListeningMinutes(userState, currentLang, selectedItem.id, minutes);
     if (!changed) return;
     audioService.playSuccess();
+    // `recordListeningMinutes` already mutated `userState` in place and saved it;
+    // the copy handed to `onUpdateState` is what publishes the new XP and minutes.
     refreshState();
   };
 
+  // The timer ticks a plain number and the reward is triggered from an effect,
+  // so StrictMode invoking the updater twice cannot credit the minutes twice.
+  // `recordMinutes` is read through a ref that is refreshed on every commit:
+  // switching material mid-session neither restarts the countdown (the timer
+  // effect no longer depends on the item) nor leaves the reward crediting the
+  // previously selected item, which the old dependency list did.
+  const recordMinutesRef = useRef(recordMinutes);
+  useEffect(() => {
+    recordMinutesRef.current = recordMinutes;
+  }, [recordMinutes]);
+
+  /** Set once a countdown has been credited; blocks a second credit. */
+  const sessionRewardedRef = useRef(false);
+
   useEffect(() => {
     if (!isRunning) return undefined;
-
     const timer = window.setInterval(() => {
-      setSecondsLeft((value) => {
-        if (value <= 1) {
-          window.clearInterval(timer);
-          setIsRunning(false);
-          recordMinutes(DAILY_LISTENING_MINUTES);
-          return 0;
-        }
-        return value - 1;
-      });
+      setSecondsLeft((value) => (value <= 1 ? 0 : value - 1));
     }, 1000);
-
     return () => window.clearInterval(timer);
-  }, [isRunning, selectedItem.id]);
+  }, [isRunning]);
+
+  // Terminal value reached: credit the planned minutes exactly once.
+  useEffect(() => {
+    if (!isRunning || secondsLeft > 0 || sessionRewardedRef.current) return;
+    sessionRewardedRef.current = true;
+    setIsRunning(false);
+    recordMinutesRef.current(DAILY_LISTENING_MINUTES);
+  }, [isRunning, secondsLeft]);
 
   const startSession = () => {
     if (progress.completed) return;
     audioService.playClick();
     window.open(selectedItem.url, '_blank', 'noopener,noreferrer');
     setSecondsLeft(Math.max(60, (DAILY_LISTENING_MINUTES - progress.minutes) * 60));
+    sessionRewardedRef.current = false;
     setIsRunning(true);
   };
 
@@ -111,6 +124,8 @@ export const ListeningView: React.FC<ListeningViewProps> = ({ userState, onUpdat
     const plannedSeconds = Math.max(60, (DAILY_LISTENING_MINUTES - progress.minutes) * 60);
     const listenedMinutes = Math.max(1, Math.ceil((plannedSeconds - secondsLeft) / 60));
     setIsRunning(false);
+    // A manually stopped session is a separate credit, so it resets the guard.
+    sessionRewardedRef.current = false;
     recordMinutes(listenedMinutes);
     setSecondsLeft(Math.max(60, (DAILY_LISTENING_MINUTES - Math.min(DAILY_LISTENING_MINUTES, progress.minutes + listenedMinutes)) * 60));
   };
@@ -145,7 +160,7 @@ export const ListeningView: React.FC<ListeningViewProps> = ({ userState, onUpdat
             <h2 id="listening-session-title">{selectedItem.title}</h2>
             <p>{selectedItem.description}</p>
           </div>
-          <span className="chip sun">{levelLabels[selectedItem.level]} · {selectedItem.minutes} мин</span>
+          <span className="chip sun">{levelLabel(selectedItem.level)} · {selectedItem.minutes} мин</span>
         </div>
         <div className="listening-source">{selectedItem.source} · {typeLabels[selectedItem.type]}</div>
         <div className="listening-session-actions">
@@ -204,7 +219,7 @@ export const ListeningView: React.FC<ListeningViewProps> = ({ userState, onUpdat
             <article className={`card listening-card ${isSelected ? 'is-selected' : ''}`} key={item.id}>
               <div className="listening-card-top">
                 <span className="listening-kind">{typeLabels[item.type]}</span>
-                <span className="chip dim">{levelLabels[item.level]}</span>
+                <span className="chip dim">{levelLabel(item.level)}</span>
               </div>
               <h3>{item.title}</h3>
               <p>{item.description}</p>

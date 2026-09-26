@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import {
@@ -6,10 +6,11 @@ import {
   getListeningProgress,
   getRecommendedListeningItem,
 } from '../services/listeningService';
+import { Route } from '../routes';
 
 interface ListeningTodayCardProps {
   userState: UserState;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
   compact?: boolean;
 }
 

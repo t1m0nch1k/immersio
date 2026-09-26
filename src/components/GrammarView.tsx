@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { GRAMMAR } from '../data/grammar';
 import { audioService } from '../services/audioService';
 import { StorageService } from '../services/storageService';
-import { grammarLessonStats } from '../services/grammarService';
+import { grammarLessonStats, withGrammarSession } from '../services/grammarService';
+import { LEVEL_LABELS } from '../utils';
 import { GrammarTrainer } from './GrammarTrainer';
+import { Route } from '../routes';
 
 interface GrammarViewProps {
   userState: UserState;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
   onUpdateState: (state: UserState) => void;
 }
+
+const LEVEL_FILTER_LABELS = ['Все уровни', ...LEVEL_LABELS];
 
 export const GrammarView: React.FC<GrammarViewProps> = ({ userState, onNavigate, onUpdateState }) => {
   const [openLesson, setOpenLesson] = useState<string | null>(null);
@@ -21,7 +25,13 @@ export const GrammarView: React.FC<GrammarViewProps> = ({ userState, onNavigate,
   const currentLang = userState.currentLang;
   const language = LANGUAGES[currentLang];
   const lessons = GRAMMAR[currentLang];
-  const stats = lessons.map((lesson) => ({ lesson, ...grammarLessonStats(userState, lesson, currentLang) }));
+  // `grammarLessonStats` rebuilds every exercise of every topic, so it used to
+  // run ~700 exercise builds on each render — including on every keystroke in
+  // the trainer that is mounted next to it.
+  const stats = useMemo(
+    () => lessons.map((lesson) => ({ lesson, ...grammarLessonStats(userState, lesson, currentLang) })),
+    [userState, lessons, currentLang]
+  );
   const dueCount = stats.reduce((sum, item) => sum + item.due, 0);
   const learned = stats.filter((item) => item.percent === 100).length;
   const recommendation = stats.find((item) => item.due > 0) || stats.find((item) => item.percent < 100) || stats[0];
@@ -32,10 +42,12 @@ export const GrammarView: React.FC<GrammarViewProps> = ({ userState, onNavigate,
     (filter === 'all' || filter === 'sentence' && item.lesson.id.includes('-sentence-') || filter === 'review' && item.due > 0 || filter === 'new' && item.percent < 100));
 
   function start(id: string, resume = false) {
-    const next = structuredClone(userState);
-    if (!resume) StorageService.ensureLangProgress(next, currentLang).grammarSession = { lessonId: id, exerciseIndex: 0 };
-    StorageService.save(next);
-    onUpdateState(next);
+    // Resuming keeps the stored cursor, so there is nothing to write or persist.
+    if (!resume) {
+      const next = withGrammarSession(userState, currentLang, { lessonId: id, exerciseIndex: 0 });
+      StorageService.save(next);
+      onUpdateState(next);
+    }
     setActive(id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -59,7 +71,7 @@ export const GrammarView: React.FC<GrammarViewProps> = ({ userState, onNavigate,
     </section>
     <div className="grammar-toolbar grammar-filters">
       <label>Уровень <select value={level} onChange={(event) => setLevel(Number(event.target.value))}>
-        {['Все уровни', 'A1', 'A2', 'B1', 'B2/C1'].map((name, i) => <option key={name} value={i}>{name}</option>)}
+        {LEVEL_FILTER_LABELS.map((name, i) => <option key={name} value={i}>{name}</option>)}
       </select></label>
       <label>Темы <select value={filter} onChange={(event) => setFilter(event.target.value)}>
         <option value="all">Все темы</option><option value="sentence">Конструктор предложений</option><option value="review">Пора повторить</option><option value="new">Ещё не освоены</option>
@@ -71,7 +83,7 @@ export const GrammarView: React.FC<GrammarViewProps> = ({ userState, onNavigate,
         return <article className={'card grammar-card ' + (isOpen ? 'is-open' : '')} key={item.id}>
           <button className="grammar-head" onClick={() => setOpenLesson(isOpen ? null : item.id)} aria-expanded={isOpen}>
             <span className="grammar-number">{String(index + 1).padStart(2, '0')}</span>
-            <span className="grammar-title"><span className="chip sun">{['', 'A1', 'A2', 'B1', 'B2/C1'][item.level]}</span><b>{item.title}</b></span>
+            <span className="grammar-title"><span className="chip sun">{LEVEL_LABELS[item.level - 1]}</span><b>{item.title}</b></span>
             <span className="grammar-chevron">{isOpen ? '−' : '+'}</span>
           </button>
           <p className="grammar-explanation">{item.explanation}</p>

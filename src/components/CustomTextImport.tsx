@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Lesson, UserState, TextPiece } from '../types';
 import { WORDS } from '../data/words';
 import { StorageService } from '../services/storageService';
+import { toastService } from '../services/toastService';
 import { audioService } from '../services/audioService';
+import { Route } from '../routes';
 
 interface CustomTextImportProps {
   userState: UserState;
   onSaveCustomLesson: (lesson: Lesson) => void;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
 }
 
 export const CustomTextImport: React.FC<CustomTextImportProps> = ({
@@ -94,7 +96,7 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
 
     userState.customLessons.push(customLesson);
     StorageService.save(userState);
-    StorageService.checkAndUnlockAchievements(userState, () => {});
+    StorageService.checkAndUnlockAchievements(userState, toastService.show);
 
     onSaveCustomLesson(customLesson);
   };

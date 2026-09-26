@@ -1,17 +1,27 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { UserState, WordCategory } from '../types';
 import { WORD_MAP, WORDS } from '../data/words';
 import { CATEGORIES } from '../data/categories';
 import { LANGUAGES } from '../data/languages';
 import { StorageService } from '../services/storageService';
 import { audioService } from '../services/audioService';
+import { Route } from '../routes';
 
 interface DictViewProps {
   userState: UserState;
   showAllWords?: boolean;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: Route) => void;
   onLearnWord: (wordId: string) => void;
   onForgetWord: (wordId: string) => void;
+}
+
+const PAGE_SIZE = 100;
+
+interface SearchableWord {
+  id: string;
+  target: string;
+  ru: string;
+  cat: WordCategory;
 }
 
 export const DictView: React.FC<DictViewProps> = ({
@@ -27,31 +37,60 @@ export const DictView: React.FC<DictViewProps> = ({
 
   const currentLang = userState.currentLang;
   const langProg = StorageService.getLangProgress(userState, currentLang);
-  const learnedIds = [...langProg.learnedWords].reverse();
-  const sourceIds = showAllWords ? WORDS.map((word) => word.id) : learnedIds;
   const currentLangObj = LANGUAGES[currentLang] || LANGUAGES.en;
-  const PAGE_SIZE = 100;
 
-  const categoriesInDict = Array.from(
-    new Set(sourceIds.map((id) => WORD_MAP[id]?.cat).filter(Boolean))
-  ) as WordCategory[];
+  // `userState` is the dependency on purpose: `learnedWords` is mutated in place
+  // by several screens (for example the word sprint), so the array reference can
+  // stay identical while its content changes. Only a new state object — which is
+  // what every `onUpdateState` produces — reliably signals a change.
+  const learnedIds = useMemo(
+    () => [...langProg.learnedWords].reverse(),
+    [userState, currentLang]
+  );
 
-  const filteredWords = sourceIds.filter((id) => {
-    const word = WORD_MAP[id];
-    if (!word) return false;
-    if (selectedCat && word.cat !== selectedCat) return false;
+  const sourceIds = useMemo(
+    () => (showAllWords ? WORDS.map((word) => word.id) : learnedIds),
+    [showAllWords, learnedIds]
+  );
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const targetTxt = (word[currentLang] || word.en).toLowerCase();
-      const ruTxt = word.ru.toLowerCase();
-      if (!targetTxt.includes(q) && !ruTxt.includes(q)) return false;
-    }
-    return true;
-  });
+  // Lower-cased haystack built once per source list. Without it every keystroke
+  // allocated two fresh lower-cased strings for each of the 3.6k words.
+  const searchableWords = useMemo<SearchableWord[]>(
+    () =>
+      sourceIds
+        .map((id) => WORD_MAP[id])
+        .filter((word): word is NonNullable<typeof word> => Boolean(word))
+        .map((word) => ({
+          id: word.id,
+          target: (word[currentLang] || word.en).toLowerCase(),
+          ru: word.ru.toLowerCase(),
+          cat: word.cat,
+        })),
+    [sourceIds, currentLang]
+  );
+
+  const categoriesInDict = useMemo(
+    () => Array.from(new Set(searchableWords.map((word) => word.cat))) as WordCategory[],
+    [searchableWords]
+  );
+
+  const filteredWords = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return searchableWords
+      .filter((word) => {
+        if (selectedCat && word.cat !== selectedCat) return false;
+        if (!query) return true;
+        return word.target.includes(query) || word.ru.includes(query);
+      })
+      .map((word) => word.id);
+  }, [searchableWords, selectedCat, searchQuery]);
+
   const totalPages = Math.max(1, Math.ceil(filteredWords.length / PAGE_SIZE));
   const page = Math.min(currentPage, totalPages);
-  const visibleWords = filteredWords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const visibleWords = useMemo(
+    () => filteredWords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredWords, page]
+  );
 
   useEffect(() => {
     setCurrentPage(1);

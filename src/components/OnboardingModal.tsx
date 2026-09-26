@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { LanguageCode, UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
-import { WORDS, WORD_MAP } from '../data/words';
 import { StorageService } from '../services/storageService';
+import { toastService } from '../services/toastService';
 import { audioService } from '../services/audioService';
 import confetti from 'canvas-confetti';
+import { AVATARS, LANGUAGE_CODES, shuffle } from '../utils';
+import { buildRussianDistractors, getWord, WORDS_BY_LEVEL } from '../utils/words';
 
 interface OnboardingModalProps {
   userState: UserState;
@@ -12,6 +14,12 @@ interface OnboardingModalProps {
   onComplete: (newState: UserState) => void;
   onClose: () => void;
 }
+
+/** Question count per level, and the level order the placement test walks. */
+const QUESTIONS_PER_LEVEL = 5;
+const TEST_LEVELS: (keyof typeof WORDS_BY_LEVEL)[] = [1, 2, 3, 4];
+/** Wrong answers added on top of the correct one in every question. */
+const OPTION_DISTRACTORS = 3;
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   userState,
@@ -30,35 +38,18 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [nameInput, setNameInput] = useState(userState.name || '');
   const [selectedAvatar, setSelectedAvatar] = useState(userState.avatar || '🦊');
 
-  const AVATARS = ['🦊', '🐼', '🦉', '🐸', '🐙', '🦄', '🐯', '🐨', '🦁', '🐹', '🐳', '🦜', '🐢', '🦋', '🐝', '🤖'];
-
-  const shuffle = <T,>(arr: T[]): T[] => {
-    const copy = [...arr];
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy;
-  };
-
   const generateTest = (lang: LanguageCode) => {
-    const byL: Record<number, typeof WORDS> = { 1: [], 2: [], 3: [], 4: [] };
-    WORDS.forEach((w) => {
-      byL[w.lvl].push(w);
-    });
-
-    const picked = [
-      ...shuffle(byL[1]).slice(0, 5),
-      ...shuffle(byL[2]).slice(0, 5),
-      ...shuffle(byL[3]).slice(0, 5),
-      ...shuffle(byL[4]).slice(0, 5),
-    ];
+    // `WORDS_BY_LEVEL` is pre-grouped once at module load, so the test no longer
+    // re-filters the whole 3.6k dictionary on every call.
+    const picked = TEST_LEVELS.flatMap(
+      (level) => shuffle(WORDS_BY_LEVEL[level]).slice(0, QUESTIONS_PER_LEVEL)
+    );
 
     return picked.map((w) => {
       const targetWord = w[lang] || w.en;
-      const pool = shuffle(WORDS.filter((x) => x.id !== w.id && x.ru !== w.ru))
-        .slice(0, 3)
-        .map((x) => x.ru);
+      // Distinct distractors only: picking raw `x.ru` could produce two buttons
+      // with the same text, one of them a wrong "answer" equal to nothing.
+      const pool = buildRussianDistractors(w.ru, w.id, OPTION_DISTRACTORS);
 
       return {
         id: w.id,
@@ -90,8 +81,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   const handleAnswerQ = (chosenRu: string) => {
     const q = testQuestions[qIndex];
-    const word = WORD_MAP[q.id];
-    const isCorrect = word && word.ru === chosenRu;
+    // Defensive: the question list and the cursor live in separate state, so a
+    // language change or a remount can leave the cursor outside the array.
+    if (!q) return;
+    const word = getWord(q.id);
+    const isCorrect = Boolean(word && word.ru === chosenRu);
 
     if (isCorrect) {
       audioService.playSuccess();
@@ -115,30 +109,55 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     return { label: 'B2 · Продвинутый', immersion: 40 };
   };
 
-  const handleFinishOnboarding = () => {
-    audioService.playFanfare();
-    confetti({ particleCount: 70 });
-
-    const lvlInfo = getImmersionFromScore(score);
-    userState.onboarded = true;
-    userState.currentLang = selectedLang;
-    userState.name = nameInput.trim() || 'Путешественник';
-    userState.avatar = selectedAvatar;
-
-    const langProg = StorageService.ensureLangProgress(userState, selectedLang);
-    langProg.immersion = lvlInfo.immersion;
-    langProg.testLvl = lvlInfo.label;
-
+  /**
+   * A retake re-measures the level and nothing else. The learner never saw the
+   * language, name and avatar steps in this dialog, so writing them again would
+   * silently reset values they did not choose, and overwriting `immersion`
+   * would throw away the depth they already built with the reader slider.
+   */
+  const applyRetakeResult = (lvlLabel: string) => {
+    const lang = userState.currentLang;
+    // In-place mutation, same as the rest of the app: the shallow copy passed to
+    // `onComplete` is what re-renders with the new level.
+    const langProg = StorageService.ensureLangProgress(userState, lang);
+    langProg.testLvl = lvlLabel;
     correctIds.forEach((id) => {
       if (!langProg.learnedWords.includes(id)) {
         langProg.learnedWords.push(id);
       }
     });
-
     userState.xp += correctIds.length * 2;
+  };
+
+  const handleFinishOnboarding = () => {
+    audioService.playFanfare();
+    confetti({ particleCount: 70 });
+
+    const lvlInfo = getImmersionFromScore(score);
+
+    if (isRetakeOnly) {
+      applyRetakeResult(lvlInfo.label);
+    } else {
+      userState.onboarded = true;
+      userState.currentLang = selectedLang;
+      userState.name = nameInput.trim() || 'Путешественник';
+      userState.avatar = selectedAvatar;
+
+      const langProg = StorageService.ensureLangProgress(userState, selectedLang);
+      langProg.immersion = lvlInfo.immersion;
+      langProg.testLvl = lvlInfo.label;
+
+      correctIds.forEach((id) => {
+        if (!langProg.learnedWords.includes(id)) {
+          langProg.learnedWords.push(id);
+        }
+      });
+
+      userState.xp += correctIds.length * 2;
+    }
 
     StorageService.save(userState);
-    StorageService.checkAndUnlockAchievements(userState, () => {});
+    StorageService.checkAndUnlockAchievements(userState, toastService.show);
 
     onComplete({ ...userState });
   };
@@ -163,7 +182,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <p style={{ marginTop: '18px', fontWeight: 800 }}>Какой язык изучаем?</p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', margin: '16px 0' }}>
-              {(Object.keys(LANGUAGES) as LanguageCode[]).map((code) => {
+              {LANGUAGE_CODES.map((code) => {
                 const lang = LANGUAGES[code];
                 const isSel = selectedLang === code;
 
@@ -206,6 +225,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
             {(() => {
               const q = testQuestions[qIndex];
+              // The cursor and the question list are separate state; a retake
+              // that regenerates questions for another language can leave the
+              // cursor past the end, which used to crash on `q.word`.
+              if (!q) return null;
               return (
                 <div style={{ marginTop: '16px' }}>
                   <div style={{ fontSize: '12px', fontFamily: 'JetBrains Mono', color: 'var(--ink2)', marginBottom: '6px' }}>
@@ -262,7 +285,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               return (
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', margin: '14px 0' }}>
                   <span className="chip sun" style={{ fontSize: '14px' }}>уровень: {info.label}</span>
-                  <span className="chip sea" style={{ fontSize: '14px' }}>старт: {info.immersion}% погружения</span>
+                  {/* A retake only records the new level: the immersion slider keeps
+                      the depth the learner already reached, so do not promise a
+                      "start from N%" that will not be applied. */}
+                  <span className="chip sea" style={{ fontSize: '14px' }}>
+                    {isRetakeOnly ? 'уровень обновлён' : `старт: ${info.immersion}% погружения`}
+                  </span>
                 </div>
               );
             })()}

@@ -28,14 +28,18 @@ export const buildStudyPlan = (state: UserState, lang: LanguageCode, date = getL
 
   const nextLesson = LESSONS.find((lesson) => !progress.doneLessons[lesson.id]);
   const weakLesson = LESSONS
-    .filter((lesson) => progress.doneLessons[lesson.id] && progress.doneLessons[lesson.id].pct < 80)
+    .filter((lesson) => {
+      const done = progress.doneLessons[lesson.id];
+      return Boolean(done) && typeof done.pct === 'number' && Number.isFinite(done.pct) && done.pct < 80;
+    })
     .sort((a, b) => progress.doneLessons[a.id].pct - progress.doneLessons[b.id].pct)[0];
   const recommendedLesson = weakLesson || nextLesson;
   const lessonIds = recommendedLesson ? lessonWordIds(recommendedLesson) : [];
   const learned = new Set(progress.learnedWords);
-  const newWordIds = lessonIds.filter((id) => !learned.has(id)).slice(0, 5);
-  const fallbackNewWords = ['hello', 'friend', 'language', 'question', 'answer'].filter((id) => !learned.has(id)).slice(0, 5);
-  const selectedNewWords = newWordIds.length > 0 ? newWordIds : fallbackNewWords;
+  // Only words of the recommended lesson are offered: a hardcoded English id
+  // list is meaningless for every other supported language, and an empty
+  // selection is a valid plan state (the task simply shows 0 new words).
+  const selectedNewWords = lessonIds.filter((id) => !learned.has(id)).slice(0, 5);
   const hasReviewWords = dueIds.length > 0 || progress.learnedWords.length > 0;
   const grammarAvailable = (GRAMMAR[lang] || []).length > 0;
   const skillType = recommendedLesson ? 'lesson' : grammarAvailable ? 'grammar' : 'sprint';
@@ -89,7 +93,7 @@ export const buildStudyPlan = (state: UserState, lang: LanguageCode, date = getL
       description: selectedNewWords.length > 0 ? `${selectedNewWords.length} слов из ближайшей темы.` : 'Словарь уже заполнен — повтори сложные слова.',
       minutes: TASK_MINUTES,
       route: 'dict-all',
-      targetId: selectedNewWords[0],
+      ...(selectedNewWords.length > 0 ? { targetId: selectedNewWords[0] } : {}),
       itemCount: selectedNewWords.length,
       newWords: selectedNewWords.length,
       completed: false,

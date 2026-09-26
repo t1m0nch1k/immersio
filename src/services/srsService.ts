@@ -1,6 +1,26 @@
 import { SRSItem } from '../types';
 import { getLocalDateKey } from './storageService';
 
+const EFACTOR_DEFAULT = 2.5;
+/** SuperMemo-2 never leaves the 1.3..3.0 band; the bounds are mirrored in `StorageService.load`. */
+const EFACTOR_MIN = 1.3;
+const EFACTOR_MAX = 3.0;
+/** Keeps `dueDate` inside the representable `Date` range, so it stays `YYYY-MM-DD`. */
+const MAX_INTERVAL_DAYS = 36500;
+
+const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const isNonNegativeNumber = (value: unknown): value is number => isFiniteNumber(value) && value >= 0;
+
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+/** A stored card can be anything after a bad write, so every field is re-checked here. */
+const safeFields = (item: SRSItem): Pick<SRSItem, 'wordId' | 'interval' | 'repetition' | 'efactor'> => ({
+  wordId: typeof item?.wordId === 'string' ? item.wordId : '',
+  interval: isNonNegativeNumber(item?.interval) ? Math.min(item.interval, MAX_INTERVAL_DAYS) : 0,
+  repetition: isNonNegativeNumber(item?.repetition) ? Math.floor(item.repetition) : 0,
+  efactor: isFiniteNumber(item?.efactor) ? clamp(item.efactor, EFACTOR_MIN, EFACTOR_MAX) : EFACTOR_DEFAULT,
+});
+
 export class SRSService {
   public static createDefaultItem(wordId: string): SRSItem {
     const today = getLocalDateKey();
@@ -8,7 +28,7 @@ export class SRSService {
       wordId,
       interval: 0,
       repetition: 0,
-      efactor: 2.5,
+      efactor: EFACTOR_DEFAULT,
       dueDate: today,
       lastReviewed: today,
     };
@@ -26,14 +46,15 @@ export class SRSService {
    *  0 - Complete blackout
    */
   public static calculateNextReview(item: SRSItem, quality: number): SRSItem {
-    let { repetition, interval, efactor } = item;
+    const current = safeFields(item);
+    let { repetition, interval, efactor } = current;
 
-    // Constrain quality between 0 and 5
-    const q = Math.max(0, Math.min(5, quality));
+    // Constrain quality between 0 and 5. A missing rating counts as a blackout
+    // so a corrupt value can never poison the interval with NaN.
+    const q = clamp(isFiniteNumber(quality) ? quality : 0, 0, 5);
 
     // Calculate EF factor adjustment
-    efactor = efactor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
-    if (efactor < 1.3) efactor = 1.3;
+    efactor = clamp(efactor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)), EFACTOR_MIN, EFACTOR_MAX);
 
     if (q < 3) {
       // Failed recall: reset repetitions
@@ -50,6 +71,7 @@ export class SRSService {
       }
       repetition += 1;
     }
+    interval = clamp(interval, 1, MAX_INTERVAL_DAYS);
 
     const now = new Date();
     const todayStr = getLocalDateKey(now);
@@ -60,7 +82,7 @@ export class SRSService {
     const dueDateStr = getLocalDateKey(dueDateObj);
 
     return {
-      wordId: item.wordId,
+      wordId: current.wordId,
       interval,
       repetition,
       efactor,
@@ -71,6 +93,8 @@ export class SRSService {
 
   public static isDue(item: SRSItem): boolean {
     const today = getLocalDateKey();
-    return item.dueDate <= today;
+    // An unreadable date must not hide a card forever: treat it as due.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(item?.dueDate ?? ''))) return true;
+    return String(item.dueDate) <= today;
   }
 }

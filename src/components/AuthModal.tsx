@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { UserState } from '../types';
 import { StorageService } from '../services/storageService';
 import { audioService } from '../services/audioService';
+import {
+  hashPassword,
+  isLegacyPasswordHash,
+  isSecurePasswordStorageAvailable,
+  verifyPassword,
+} from '../services/passwordHash';
+
+// Password hashing lives in src/services/passwordHash.ts so that StorageService.load
+// can drop legacy digests too. See tests/pbkdf2.mjs.
 
 interface AuthModalProps {
   userState: UserState;
@@ -9,6 +18,23 @@ interface AuthModalProps {
   onClose: () => void;
   onShowToast: (msg: string) => void;
 }
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '12px',
+  border: '2px solid var(--ink)',
+  borderRadius: '12px',
+  marginTop: '4px',
+  background: 'var(--card)',
+  color: 'var(--ink)',
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 800,
+  textTransform: 'uppercase',
+  color: 'var(--pine3)',
+};
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   userState,
@@ -21,32 +47,92 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const hashPassword = async (value: string): Promise<string> => {
-    const bytes = new TextEncoder().encode(value);
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  // Evaluated once: the capability cannot appear or disappear while the page lives.
+  const [canStorePassword] = useState(isSecurePasswordStorageAvailable);
+
+  const hasStoredCredentials = Boolean(userState.account.email && userState.account.passwordHash);
+
+  // A legacy unsalted digest cannot be verified, so the credentials it protected
+  // are dropped on the spot instead of being kept as a fake promise of safety.
+  useEffect(() => {
+    if (!isLegacyPasswordHash(userState.account.passwordHash)) return;
+    userState.account = {
+      ...userState.account,
+      email: '',
+      name: '',
+      passwordHash: undefined,
+      subscribedDate: undefined,
+      subscriptionPlan: undefined,
+      isAuth: false,
+    };
+    userState.name = '';
+    StorageService.save(userState);
+    onUpdateState({ ...userState });
+    setNotice('Сохранённый пароль был в старом небезопасном формате, поэтому учётные данные сброшены. Зарегистрируйте профиль заново.');
+    // Runs once on mount: this is a migration of the stored payload, not a reaction.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const openTab = (next: 'login' | 'register') => {
+    setError('');
+    setNotice('');
+    setTab(next);
+  };
+
+  const finishAuth = (displayName: string, toast: string) => {
+    userState.name = displayName;
+    StorageService.save(userState);
+    onUpdateState({ ...userState });
+    onShowToast(toast);
+    onClose();
+  };
+
+  const handlePasswordlessProfile = () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    audioService.playSuccess();
+    const fallbackName = email.trim().split('@')[0] || 'Студент';
+    const displayName = name.trim() || fallbackName;
+    userState.account = {
+      ...userState.account,
+      email: '',
+      name: displayName,
+      passwordHash: undefined,
+      subscribedDate: undefined,
+      subscriptionPlan: undefined,
+      isAuth: true,
+    };
+    finishAuth(displayName, `👤 Локальный профиль «${displayName}» без пароля готов.`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim() || isSubmitting) return;
+    if (!canStorePassword) return;
 
     setError('');
+    setNotice('');
     setIsSubmitting(true);
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      const passwordHash = await hashPassword(password);
+      const account = userState.account;
 
       if (tab === 'login') {
-        const account = userState.account;
-        if (account.email.toLowerCase() !== normalizedEmail || account.passwordHash !== passwordHash) {
+        if (account.email.toLowerCase() !== normalizedEmail) {
+          setError('Неверный e-mail или пароль для локального профиля.');
+          return;
+        }
+        if (!(await verifyPassword(password, account.passwordHash))) {
           setError('Неверный e-mail или пароль для локального профиля.');
           return;
         }
       }
+
+      const passwordHash = await hashPassword(password);
 
       audioService.playSuccess();
 
@@ -56,23 +142,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         name: tab === 'register'
           ? (name.trim() || normalizedEmail.split('@')[0] || 'Студент')
           : (userState.account.name || userState.name || normalizedEmail.split('@')[0] || 'Студент'),
-        passwordHash: tab === 'register' ? passwordHash : userState.account.passwordHash,
+        passwordHash,
         isAuth: true,
       };
       userState.name = userState.account.name;
 
-      StorageService.save(userState);
-      onUpdateState({ ...userState });
-
-      if (tab === 'register') {
-        onShowToast(`🎉 Локальный профиль ${normalizedEmail} создан!`);
-      } else {
-        onShowToast(`👋 С возвращением, ${userState.name}!`);
-      }
-
-      onClose();
+      finishAuth(userState.name, tab === 'register'
+        ? `🎉 Локальный профиль ${normalizedEmail} создан!`
+        : `👋 С возвращением, ${userState.name}!`);
     } catch {
-      setError('Не удалось обработать пароль в этом браузере.');
+      setError('Браузер не смог безопасно обработать пароль. Создайте локальный профиль без пароля.');
     } finally {
       setIsSubmitting(false);
     }
@@ -83,93 +162,120 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <div className="dlg" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'var(--card)', padding: '6px', borderRadius: '14px', border: '2px solid var(--ink)' }}>
           <button
+            type="button"
             className={`mi ${tab === 'register' ? 'cur' : ''}`}
             style={{ textAlign: 'center', justifyContent: 'center' }}
-            onClick={() => {
-              setError('');
-              setTab('register');
-            }}
+            onClick={() => openTab('register')}
           >
             Создать аккаунт
           </button>
           <button
+            type="button"
             className={`mi ${tab === 'login' ? 'cur' : ''}`}
             style={{ textAlign: 'center', justifyContent: 'center' }}
-            onClick={() => {
-              setError('');
-              setTab('login');
-            }}
+            onClick={() => openTab('login')}
           >
             Войти
           </button>
         </div>
 
         <h2 id="auth-dialog-title" style={{ fontFamily: 'Unbounded', fontSize: '22px', marginBottom: '8px', textAlign: 'center' }}>
-          {tab === 'register' ? 'Регистрация 🎒' : 'Вход в профиль 🔐'}
+          {canStorePassword
+            ? (tab === 'register' ? 'Регистрация 🎒' : 'Вход в профиль 🔐')
+            : 'Локальный профиль 👤'}
         </h2>
         <p className="sub" style={{ textAlign: 'center', margin: '0 auto 20px' }}>
-          {tab === 'register'
-            ? 'Сохраняй выученные слова, стрик и прогресс на этом устройстве.'
-            : 'Введи данные своей учётной записи.'}
+          {!canStorePassword
+            ? 'Пароль хранить небезопасно, но весь прогресс остаётся на устройстве.'
+            : tab === 'register'
+              ? 'Сохраняй выученные слова, стрик и прогресс на этом устройстве.'
+              : 'Введи данные своей учётной записи.'}
         </p>
 
+        {notice && (
+          <div className="errorbox" role="status" style={{ marginTop: 0, marginBottom: '4px' }}>
+            {notice}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {tab === 'register' && (
+          {(tab === 'register' || !canStorePassword) && (
             <div>
-              <label style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--pine3)' }}>
-                Твоё имя
-              </label>
+              <label style={labelStyle}>Твоё имя</label>
               <input
                 type="text"
-                required
                 placeholder="Алексей"
                 value={name}
+                maxLength={20}
                 onChange={(e) => setName(e.target.value)}
-                style={{ width: '100%', padding: '12px', border: '2px solid var(--ink)', borderRadius: '12px', marginTop: '4px', background: 'var(--card)', color: 'var(--ink)' }}
+                style={inputStyle}
               />
             </div>
           )}
 
-          <div>
-            <label style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--pine3)' }}>
-              E-mail
-            </label>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="alexey@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: '100%', padding: '12px', border: '2px solid var(--ink)', borderRadius: '12px', marginTop: '4px', background: 'var(--card)', color: 'var(--ink)' }}
-            />
-          </div>
+          {canStorePassword && (
+            <>
+              <div>
+                <label style={labelStyle}>E-mail</label>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="alexey@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
 
-          <div>
-            <label style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--pine3)' }}>
-              Пароль
-            </label>
-            <input
-              type="password"
-              required
-              placeholder="••••••••"
-              value={password}
-              minLength={8}
-              autoComplete={tab === 'register' ? 'new-password' : 'current-password'}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '12px', border: '2px solid var(--ink)', borderRadius: '12px', marginTop: '4px', background: 'var(--card)', color: 'var(--ink)' }}
-            />
-          </div>
+              <div>
+                <label style={labelStyle}>Пароль</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  minLength={8}
+                  autoComplete={tab === 'register' ? 'new-password' : 'current-password'}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            </>
+          )}
+
+          {canStorePassword && tab === 'register' && (
+            <p style={{ fontSize: '12px', color: 'var(--ink2)', margin: 0 }}>
+              Пароль не сохраняется: он превращается в PBKDF2-хеш (210 000 итераций) со случайной солью. Забудешь пароль — профиль придётся создать заново.
+            </p>
+          )}
+
+          {canStorePassword && tab === 'login' && !hasStoredCredentials && (
+            <p style={{ fontSize: '12.5px', color: 'var(--ink2)', margin: 0 }}>
+              На этом устройстве нет сохранённых учётных данных. Вход возможен только после регистрации.
+            </p>
+          )}
 
           {error && <div className="errorbox" role="alert">{error}</div>}
 
-          <button className="btn sun big" type="submit" disabled={isSubmitting} style={{ marginTop: '14px' }}>
-            {isSubmitting ? 'Проверка…' : tab === 'register' ? 'Зарегистрироваться →' : 'Войти в профиль →'}
-          </button>
+          {canStorePassword ? (
+            <button className="btn sun big" type="submit" disabled={isSubmitting} style={{ marginTop: '14px' }}>
+              {isSubmitting ? 'Проверка…' : tab === 'register' ? 'Зарегистрироваться →' : 'Войти в профиль →'}
+            </button>
+          ) : (
+            <>
+              <div className="errorbox" role="alert">
+                Этот браузер не даёт доступ к безопасному хранению пароля: нет HTTPS (secure context) или Web Crypto. Мы не будем сохранять пароль в таком виде.
+              </div>
+              <button className="btn sun big" type="button" onClick={handlePasswordlessProfile} disabled={isSubmitting} style={{ marginTop: '14px' }}>
+                {isSubmitting ? 'Готовим…' : 'Продолжить без пароля →'}
+              </button>
+            </>
+          )}
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '16px' }}>
-          <button className="btn ghost" onClick={onClose}>
+          <button className="btn ghost" type="button" onClick={onClose}>
             Отмена
           </button>
         </div>
