@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The window background is only visible for the moment between the splash
+        and the first paint of the web bundle, and behind the status and
+        navigation bars. MainActivity keeps both in sync with the in-app theme,
+        so the two values here have to match PAPER_LIGHT in MainActivity.kt.
+    -->
+    <color name="paper">#f5f1e6</color>
+</resources>

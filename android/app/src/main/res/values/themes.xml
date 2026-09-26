@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The window background is visible for the moment between the launch and
+        the first paint of the web bundle, and behind the system bars. The in-app
+        theme is driven from JavaScript and MainActivity mirrors it onto the
+        bars, so this value has to match PAPER_LIGHT in MainActivity.kt.
+    -->
+    <style name="Theme.Pogruzhenie" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+    </style>
+</resources>

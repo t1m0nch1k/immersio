@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors PAPER_DARK in MainActivity.kt. -->
+    <style name="Theme.Pogruzhenie" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+    </style>
+</resources>

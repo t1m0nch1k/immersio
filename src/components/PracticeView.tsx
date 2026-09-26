@@ -249,7 +249,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
         <>
           {/* Game Select Hub */}
           {!activeGame && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '20px' }}>
+            <div className="gamehub-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '20px' }}>
               <div className="card" style={{ animationDelay: '0.04s' }}>
                 <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px' }}>
                   🧠 SRS Карточки

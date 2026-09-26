@@ -21,6 +21,11 @@ await writeFile(htmlPath, html.replace('</head>', '<link rel="stylesheet" href="
 await cp(resolve(root, 'android/app/android-phone.css'), resolve(target, 'android-phone.css'));
 await writeFile(resolve(target, 'android-bridge.js'), `
 (function () {
+  var host = window.AndroidHost;
+
+  // --- Speech -------------------------------------------------------------
+  // The WebView speech engine is inconsistent across devices, so the packaged
+  // bundle routes everything through the platform TextToSpeech instead.
   function NativeUtterance(text) {
     this.text = String(text || '');
     this.lang = 'en-US';
@@ -41,6 +46,46 @@ await writeFile(resolve(target, 'android-bridge.js'), `
     window.speechSynthesis = synthesis;
   }
   window.SpeechSynthesisUtterance = NativeUtterance;
+
+  if (!host) return;
+
+  // --- External links -----------------------------------------------------
+  // window.open() needs setSupportMultipleWindows plus onCreateWindow to work,
+  // and a new WebView would lose the app state. Route it to the system
+  // browser instead, which is what the caller meant.
+  var nativeOpen = window.open;
+  window.open = function (url) {
+    var href = typeof url === 'string' ? url : (url && url.href);
+    if (!href) return null;
+    try {
+      host.openExternal(href);
+    } catch (error) {
+      if (nativeOpen) return nativeOpen.apply(window, arguments);
+    }
+    return null;
+  };
+
+  // --- Theme --------------------------------------------------------------
+  // The system bars are painted by the shell, which cannot see the app theme.
+  // Watching the attribute the app already toggles keeps the two in step
+  // without the web bundle having to know it is running inside the shell.
+  function reportTheme() {
+    try {
+      host.setTheme(document.documentElement.getAttribute('data-theme') === 'dark');
+    } catch (error) {
+      /* the host went away; nothing to sync */
+    }
+  }
+
+  new MutationObserver(reportTheme).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', reportTheme);
+  } else {
+    reportTheme();
+  }
 })();
 `);
 console.log('Android web bundle copied to android/app/src/main/assets/www');

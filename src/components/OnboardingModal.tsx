@@ -181,7 +181,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
             <p style={{ marginTop: '18px', fontWeight: 800 }}>Какой язык изучаем?</p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', margin: '16px 0' }}>
+            <div className="lang-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', margin: '16px 0' }}>
               {LANGUAGE_CODES.map((code) => {
                 const lang = LANGUAGES[code];
                 const isSel = selectedLang === code;

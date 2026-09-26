@@ -1,6 +1,17 @@
-/* Phone sizing for the packaged site. The site's colors, components and learning logic stay unchanged. */
+/*
+ * Phone sizing for the packaged site.
+ *
+ * The site's colours, components and learning logic stay unchanged: this file
+ * only fixes layout and sizing. It is injected after the bundled stylesheet
+ * (see scripts/build-android-web.mjs), so it wins whenever specificity ties.
+ *
+ * Anything that needs a hook in the markup gets a class rather than a
+ * [style*="..."] selector, because those break silently on any JSX edit.
+ */
+
 @media (max-width: 600px) {
   html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
+
   header {
     box-sizing: border-box;
     width: 100%;
@@ -10,7 +21,7 @@
     gap: 7px;
     padding: 8px 12px 10px;
   }
-  header .logo { grid-column: 1 / -1; min-width: 0; white-space: nowrap; font-size: 14px; }
+  header .logo { grid-column: 1 / -1; min-width: 0; white-space: nowrap; font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
   header .hspace, header .hchip.xp { display: none; }
   header > div[style*="position: relative"] { grid-column: 1; justify-self: start; }
   header .hchip { min-height: 38px; padding: 7px 10px; gap: 5px; }
@@ -18,18 +29,126 @@
   header > .iconbtn { width: 38px !important; height: 38px !important; flex-shrink: 0; }
   header > .btn.small, header > #avbtn { flex-shrink: 0; }
   header > .btn.small { min-height: 38px; padding: 7px 10px; font-size: 12px; }
-  .ovl { display: flex; align-items: center; justify-content: center; padding: 12px; }
-  .dlg { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; max-height: calc(100dvh - 24px); overflow-y: auto; padding: 18px 14px; }
-  .dlg [style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+
+  .ovl {
+    display: flex;
+    /* Centred, but a dialog taller than the viewport scrolls from the top
+       instead of having its header clipped by the flex container. */
+    align-items: flex-start;
+    justify-content: center;
+    padding: 12px;
+    overflow-y: auto;
+  }
+  .ovl > .dlg { margin: auto 0; }
+  .dlg {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    padding: 18px 14px;
+  }
+  /* Onboarding language picker: three 79px tracks could not hold the names. */
+  .lang-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .lcard { min-width: 0; padding: 8px 4px; }
   .lcard b, .lcard small { overflow-wrap: anywhere; }
+
   .shell { box-sizing: border-box; width: 100%; padding: 0 12px 92px; margin: 16px auto 0; }
   main, .view { width: 100%; min-width: 0; max-width: 100%; }
   .card { max-width: 100%; box-sizing: border-box; }
-  .mbar { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
-  .mbar::-webkit-scrollbar { display: none; }
-  .mbar button { flex: 0 0 64px; min-width: 64px; padding: 6px 3px; }
-  .wcard { left: 12px !important; right: 12px; top: auto !important; bottom: 80px; width: auto; max-height: 55dvh; overflow-y: auto; }
+  .mbar { justify-content: flex-start; }
+  .mbar button { min-width: 62px; padding: 6px 4px; }
+
+  /* --- Word card popup -------------------------------------------------- */
+  /* The shell anchors it to the bottom, which means the JavaScript placement
+     is dead weight here. The offset tracks the real height of the bar plus
+     its own bottom padding instead of a guessed pixel value. */
+  .wcard {
+    left: 12px !important;
+    right: 12px;
+    top: auto !important;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: 55vh;
+    max-height: 55dvh;
+    overflow-y: auto;
+  }
+
   .text, .original-sentence-text { overflow-wrap: anywhere; }
   input, select, textarea { max-width: 100%; }
+
+  /* --- Dictionary ------------------------------------------------------- */
+  /* The row was a single non-wrapping flex line needing ~396px, so the speak
+     and learn/forget buttons were pushed past the right edge and clipped by
+     overflow-x: hidden. The buttons keep their own columns and span all three
+     text rows. The chip carries an inline margin-right: auto for the web flex
+     layout, which has to be neutralised here or the chip jumps to the far end
+     of its track. */
+  .wrow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'target  speak action'
+      'russian speak action'
+      'meta    speak action';
+    column-gap: 8px;
+    row-gap: 4px;
+    align-items: center;
+    padding: 12px 14px;
+  }
+  .wrow .fw { grid-area: target; min-width: 0; overflow-wrap: anywhere; }
+  .wrow .ru { grid-area: russian; min-width: 0; overflow-wrap: anywhere; }
+  .wrow > .chip { grid-area: meta; justify-self: start; margin-right: 0 !important; }
+  .wrow > button:nth-of-type(1) { grid-area: speak; }
+  .wrow > button:nth-of-type(2) { grid-area: action; }
+  .dict-switch { display: flex; max-width: 100%; }
+  .dict-switch button { min-width: 0; overflow-wrap: anywhere; }
+
+  /* --- Avatars ---------------------------------------------------------- */
+  /* Six 29px tracks under 50px tiles made the rows overlap. */
+  .avgrid { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 8px; }
+  .av { width: 100%; max-width: 50px; height: auto; aspect-ratio: 1; justify-self: center; font-size: 24px; }
+
+  /* --- Pair matching ---------------------------------------------------- */
+  /* 1fr 1fr left ~87px of text, which clipped German and French words. */
+  .pcols { grid-template-columns: 1fr; gap: 10px; }
+  .pb { overflow-wrap: anywhere; text-align: left; }
+
+  /* --- Practice game hub ------------------------------------------------ */
+  .gamehub-grid { grid-template-columns: 1fr !important; }
+  .gamehub-grid .btn { white-space: normal; overflow-wrap: anywhere; }
+
+  /* --- Reader ----------------------------------------------------------- */
+  /* .tk is white-space: nowrap, and overflow-wrap does not override that, so
+     long German or Slovak tokens used to run past the text column. */
+  .text .tk, .original-sentence-text .tk {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .mastery-head { flex-wrap: wrap; gap: 4px 10px; }
+  .mastery-level { grid-template-columns: 32px 1fr 42px; }
+
+  /* --- Profile ---------------------------------------------------------- */
+  .hgrid { grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .pname input { width: 100%; max-width: 260px; }
+
+  /* --- Listening -------------------------------------------------------- */
+  .listening-session-head { flex-wrap: wrap; }
+}
+
+/* Very narrow phones: the bottom bar holds nine destinations, so once the
+   labels stop fitting there is nothing to gain from holding the width. */
+@media (max-width: 360px) {
+  .mbar button { min-width: 56px; padding: 6px 2px; font-size: 9px; }
+  .mbar button svg { width: 20px; height: 20px; }
+  .wcard { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Landscape phones are short, not narrow: the vertical budget is the scarce one. */
+@media (orientation: landscape) and (max-height: 480px) {
+  .dlg { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); padding: 14px; }
+  .wcard { max-height: 70vh; max-height: 70dvh; }
+  .ovl { padding: 8px; }
 }

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors PAPER_DARK in MainActivity.kt. -->
+    <color name="paper">#0e1713</color>
+</resources>

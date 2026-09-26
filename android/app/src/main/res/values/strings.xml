@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Погружение</string>
+    <string name="error_title">Приложение не загрузилось</string>
+    <string name="error_detail">Не удалось открыть встроенный раздел: %1$s</string>
+    <string name="error_retry">Перезагрузить</string>
+    <string name="action_ok">ОК</string>
+    <string name="action_cancel">Отмена</string>
+</resources>
