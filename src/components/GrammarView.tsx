@@ -8,6 +8,7 @@ import { grammarLessonStats, withGrammarSession } from '../services/grammarServi
 import { LEVEL_LABELS } from '../utils';
 import { GrammarTrainer } from './GrammarTrainer';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface GrammarViewProps {
   userState: UserState;
@@ -89,7 +90,7 @@ export const GrammarView: React.FC<GrammarViewProps> = ({ userState, onNavigate,
           <p className="grammar-explanation">{item.explanation}</p>
           {isOpen && <div className="grammar-examples">
             {item.examples.map((example, i) => <div className="grammar-example" key={item.id + '-' + i}>
-              <div className="grammar-example-line"><button className="example-target" lang={currentLang} onClick={() => audioService.speak(example.target, currentLang)} title="Озвучить пример">{example.target} 🔊</button><span className="example-ru">{example.ru}</span></div>
+              <div className="grammar-example-line"><button className="example-target" lang={currentLang} onClick={() => audioService.speak(example.target, currentLang)} title="Озвучить пример">{example.target} <Icon name="volume" className="sm" /></button><span className="example-ru">{example.ru}</span></div>
               {example.chunks && <div className="grammar-chunks">{example.chunks.map((chunk, j) => <div key={j}><b lang={currentLang}>{chunk.text}</b><small>{chunk.role}</small></div>)}</div>}
               {example.note && <small>{example.note}</small>}
             </div>)}

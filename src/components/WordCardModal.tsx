@@ -1,8 +1,9 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LanguageCode, Word } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { CATEGORIES } from '../data/categories';
 import { audioService } from '../services/audioService';
+import { Icon } from './icons';
 
 interface WordCardModalProps {
   word: Word;
@@ -146,9 +147,9 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
           onClick={handleSpeak}
           title="Озвучить"
           aria-label={`Озвучить слово ${targetWord}`}
-          style={{ width: '32px', height: '32px', fontSize: '14px' }}
+          style={{ width: '32px', height: '32px' }}
         >
-          🔊
+          <Icon name="volume" className="sm" />
         </button>
       </div>
 
@@ -200,7 +201,7 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
               onLearn(word.id);
             }}
           >
-            ✓ Выучить (+2 XP)
+            <Icon name="check" /> Выучить (+2 XP)
           </button>
         )}
       </div>

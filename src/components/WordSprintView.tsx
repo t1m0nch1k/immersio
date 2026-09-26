@@ -11,6 +11,7 @@ import { shuffle } from '../utils';
 import { buildRussianDistractors, getRussianText, getTargetText, getWord } from '../utils/words';
 import { createSeededRandom } from './seededRandom';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface WordSprintViewProps {
   userState: UserState;
@@ -189,13 +190,17 @@ export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpd
         <div className="card sprint-card">
           <div className="sprint-meta">
             <span>Слово {index + 1} из {queue.length}</span>
-            <span className={seconds <= 10 ? 'sprint-timer urgent' : 'sprint-timer'}>⏱ {seconds} сек</span>
-            <span>Серия: {streak} 🔥</span>
+            <span className={seconds <= 10 ? 'sprint-timer urgent' : 'sprint-timer'}>
+              <Icon name="timer" /> {seconds} сек
+            </span>
+            <span className="sprint-streak">
+              Серия: {streak} <Icon name="flame" />
+            </span>
           </div>
           <div className="sprint-track"><span style={{ width: `${((index + 1) / queue.length) * 100}%` }} /></div>
           <div className="sprint-word-row">
             <div className="sprint-word">{currentText}</div>
-            <button className="iconbtn" onClick={() => audioService.speak(currentText, currentLang)} aria-label="Произнести слово">🔊</button>
+            <button className="iconbtn" onClick={() => audioService.speak(currentText, currentLang)} aria-label="Произнести слово"><Icon name="volume" /></button>
           </div>
           <p className="sprint-prompt">Выбери перевод</p>
           <div className="sprint-options" role="group" aria-label="Варианты перевода">

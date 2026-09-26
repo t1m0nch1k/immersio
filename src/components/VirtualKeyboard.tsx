@@ -2,6 +2,7 @@ import React, { useId, useState } from 'react';
 import { LANGUAGES } from '../data/languages';
 import { VIRTUAL_KEYBOARDS } from '../data/virtualKeyboard';
 import { LanguageCode } from '../types';
+import { Icon } from './icons';
 
 interface VirtualKeyboardProps {
   lang: LanguageCode;
@@ -48,7 +49,7 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
         aria-controls={panelId}
         onClick={() => setOpen((current) => !current)}
       >
-        <span aria-hidden="true">⌨</span>
+        <Icon name="keyboard" />
         <span>Виртуальная клавиатура · {language.name}</span>
         <span className="virtual-keyboard-toggle-state">{open ? 'Скрыть' : 'Открыть'}</span>
       </button>
@@ -88,7 +89,7 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                 aria-pressed={shifted}
                 aria-label="Переключить регистр"
               >
-                ⇧ Регистр
+                <Icon name="shift" /> Регистр
               </button>
             )}
             <button
@@ -109,7 +110,7 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
               onClick={() => onChange(removeLastCharacter(value))}
               aria-label="Удалить последний символ"
             >
-              ⌫
+              <Icon name="backspace" />
             </button>
             <button
               type="button"

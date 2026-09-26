@@ -7,6 +7,7 @@ import {
   getRecommendedListeningItem,
 } from '../services/listeningService';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface ListeningTodayCardProps {
   userState: UserState;
@@ -23,7 +24,7 @@ export const ListeningTodayCard: React.FC<ListeningTodayCardProps> = ({ userStat
 
   return (
     <section className={`card listening-teaser ${compact ? 'listening-teaser-compact' : ''}`}>
-      <div className="listening-teaser-icon">🎧</div>
+      <div className="listening-teaser-icon"><Icon name="headphones" /></div>
       <div className="listening-teaser-body">
         <div className="overline">слушание · {language.name}</div>
         <h2>{progress.completed ? 'Слуховая практика выполнена' : '15 минут живого языка'}</h2>

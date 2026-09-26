@@ -12,6 +12,7 @@ import { buildRussianDistractors, getRussianText, getTargetText, getWord, isUsab
 import { createSeededRandom } from './seededRandom';
 import { PairSide, usePairsMatching } from './usePairsMatching';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface PracticeViewProps {
   userState: UserState;
@@ -235,14 +236,14 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
       {usableLearnedWords.length < 4 ? (
         <div className="card" style={{ marginTop: '20px', textAlign: 'center', padding: '30px' }}>
-          <span style={{ fontSize: '48px', display: 'block', marginBottom: '10px' }}>🔒</span>
+          <Icon name="lock" className="lockmark" />
           <h3>Тренажёр закрыт</h3>
           <p className="sub" style={{ margin: '10px auto' }}>
             Чтобы открыть тренажёр, выучи хотя бы 4 слова — например, в уроках!
           </p>
           <div className="guide-actions" style={{ justifyContent: 'center' }}>
             <button className="btn sun" onClick={() => onNavigate('lessons')}>Перейти к урокам →</button>
-            <button className="btn" onClick={() => onNavigate('sprint')}>⚡ Попробовать спринт</button>
+            <button className="btn" onClick={() => onNavigate('sprint')}><Icon name="bolt" /> Попробовать спринт</button>
           </div>
         </div>
       ) : (
@@ -333,7 +334,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                         style={{ marginLeft: '12px', verticalAlign: 'middle' }}
                         onClick={() => audioService.speak(targetTxt, currentLang)}
                       >
-                        🔊
+                        <Icon name="volume" />
                       </button>
                     </div>
 
@@ -342,15 +343,20 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                         <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--sea)', margin: '14px 0' }}>
                           {getRussianText(word)}
                         </div>
+                        {/*
+                          No icon here on purpose. The three ratings differ
+                          only by colour, so a marker in the same hue adds
+                          nothing; the fill already is the signal.
+                        */}
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '24px' }}>
                           <button className="btn coral" onClick={() => handleSRSReview(1)}>
-                            🔴 Забыл (1)
+                            Забыл (1)
                           </button>
                           <button className="btn sun" onClick={() => handleSRSReview(3)}>
-                            🟡 Вспомнил (3)
+                            Вспомнил (3)
                           </button>
                           <button className="btn pine" onClick={() => handleSRSReview(5)}>
-                            🟢 Легко (5)
+                            Легко (5)
                           </button>
                         </div>
                       </div>
@@ -363,7 +369,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                           setSrsFlipped(true);
                         }}
                       >
-                        Показать перевод 👁️
+                        <Icon name="eye" /> Показать перевод
                       </button>
                     )}
                   </div>
@@ -383,9 +389,10 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                 <button
                   className="iconbtn"
                   style={{ marginLeft: '10px' }}
+                  aria-label="Произнести слово"
                   onClick={() => audioService.speak(getTargetText(currentQuizWord, currentLang), currentLang)}
                 >
-                  🔊
+                  <Icon name="volume" />
                 </button>
               </div>
 
@@ -469,7 +476,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                 onClick={() => audioService.speak(getTargetText(currentQuizWord, currentLang), currentLang)}
                 style={{ fontSize: '24px', padding: '20px 36px', margin: '14px 0' }}
               >
-                🔊 Прослушать ещё раз
+                <Icon name="volume" /> Прослушать ещё раз
               </button>
 
               <div className="opts" style={{ marginTop: '20px' }}>

@@ -6,6 +6,7 @@ import { getLocalDateKey } from '../services/storageService';
 import { LANGUAGE_CODES } from '../utils';
 import { isAvatarPhoto } from '../utils/avatar';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface HeaderProps {
   userState: UserState;
@@ -88,11 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
         style={{ background: 'none', border: 0, color: 'inherit' }}
       >
         <span className="mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" focusable="false">
-            <path d="M2 8c3-3 5 3 8 0s5 3 8 0" />
-            <path d="M2 13c3-3 5 3 8 0s5 3 8 0" />
-            <path d="M2 18c3-3 5 3 8 0s5 3 8 0" />
-          </svg>
+          <Icon name="waves" strokeWidth={2.5} />
         </span>
         <span className="logotext">ПОГРУЖЕНИЕ</span>
       </button>
@@ -118,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <span>{currentLangObj.flag}</span>
           <b>{currentLangObj.code.toUpperCase()}</b>
-          <span style={{ fontSize: '10px' }}>▼</span>
+          <Icon name="chevron-down" className="caret" strokeWidth={2.6} />
         </button>
 
         {langMenuOpen && (
@@ -152,13 +149,13 @@ export const Header: React.FC<HeaderProps> = ({
         onClick={() => onNavigate('profile')}
         title={isStreakLit ? 'Сегодня урок засчитан!' : 'Пройди урок сегодня, чтобы продлить стрик'}
       >
-        <span className="fl">🔥</span>
+        <Icon name="flame" className="fl" />
         <b>{userState.streak.current}</b>
       </button>
 
       {/* XP chip */}
       <button className="hchip xp" type="button" onClick={() => onNavigate('profile')}>
-        ⚡ <b>{userState.xp} XP</b>
+        <Icon name="bolt" /> <b>{userState.xp} XP</b>
       </button>
 
       {/* Dark mode toggle button */}
@@ -171,9 +168,8 @@ export const Header: React.FC<HeaderProps> = ({
         }}
         title="Сменить тему"
         aria-label="Сменить тему"
-        style={{ width: '40px', height: '40px', fontSize: '18px' }}
       >
-        {userState.darkMode ? '☀️' : '🌙'}
+        <Icon name={userState.darkMode ? 'sun' : 'moon'} />
       </button>
 
       {/* Sound toggle button */}
@@ -187,9 +183,8 @@ export const Header: React.FC<HeaderProps> = ({
         title={userState.soundEnabled ? 'Выключить звук' : 'Включить звук'}
         aria-label={userState.soundEnabled ? 'Выключить звук' : 'Включить звук'}
         aria-pressed={userState.soundEnabled}
-        style={{ width: '40px', height: '40px', fontSize: '18px' }}
       >
-        {userState.soundEnabled ? '🔊' : '🔇'}
+        <Icon name={userState.soundEnabled ? 'volume' : 'volume-off'} />
       </button>
 
       {/* Auth / Avatar button */}

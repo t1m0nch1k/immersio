@@ -13,6 +13,7 @@ import { StorageService } from '../services/storageService';
 import { toastService } from '../services/toastService';
 import { LEVEL_LABELS } from '../utils';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface ListeningViewProps {
   userState: UserState;
@@ -226,12 +227,12 @@ export const ListeningView: React.FC<ListeningViewProps> = ({ userState, onUpdat
               <div className="listening-card-meta">{item.source} · около {item.minutes} мин</div>
               <div className="listening-card-actions">
                 <button className="btn small ghost" onClick={() => setSelectedId(item.id)}>
-                  {isSelected ? 'Выбрано ✓' : 'Выбрать'}
+                  {isSelected ? (<><Icon name="check" /> Выбрано</>) : 'Выбрать'}
                 </button>
                 <a className="btn small pine" href={item.url} target="_blank" rel="noreferrer">
-                  Слушать ↗
+                  Слушать <Icon name="external-link" className="sm" />
                 </a>
-                {isDone && <span className="listening-done">Сегодня ✓</span>}
+                {isDone && <span className="listening-done"><Icon name="check" className="sm" /> Сегодня</span>}
               </div>
             </article>
           );

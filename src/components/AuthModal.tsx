@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
+import { Icon } from './icons';
 import { UserState } from '../types';
 import { StorageService } from '../services/storageService';
 import { audioService } from '../services/audioService';
@@ -179,10 +180,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
-        <h2 id="auth-dialog-title" style={{ fontFamily: 'Unbounded', fontSize: '22px', marginBottom: '8px', textAlign: 'center' }}>
-          {canStorePassword
-            ? (tab === 'register' ? 'Регистрация 🎒' : 'Вход в профиль 🔐')
-            : 'Локальный профиль 👤'}
+        <h2 id="auth-dialog-title" className="auth-title">
+          {canStorePassword ? (
+            tab === 'register' ? (
+              <><Icon name="user" /> Регистрация</>
+            ) : (
+              <><Icon name="lock" /> Вход в профиль</>
+            )
+          ) : (
+            <><Icon name="user" /> Локальный профиль</>
+          )}
         </h2>
         <p className="sub" style={{ textAlign: 'center', margin: '0 auto 20px' }}>
           {!canStorePassword

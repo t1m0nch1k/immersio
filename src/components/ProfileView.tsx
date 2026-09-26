@@ -9,6 +9,7 @@ import { AVATARS, LANGUAGE_CODES, LEVEL_LABELS } from '../utils';
 import { WORDS_BY_LEVEL } from '../utils/words';
 import { fileToAvatarDataUrl, isAvatarPhoto } from '../utils/avatar';
 import { toastService } from '../services/toastService';
+import { Icon } from './icons';
 
 interface ProfileViewProps {
   userState: UserState;
@@ -109,11 +110,11 @@ const ProfileHeader = React.memo<{
       {/* 4 Stat Boxes */}
       <div className="stats">
         <div className="card stat fire">
-          <b>🔥 {userState.streak.current}</b>
+          <b><Icon name="flame" /> {userState.streak.current}</b>
           <span>текущий стрик (дн.)</span>
         </div>
         <div className="card stat">
-          <b>🏅 {userState.streak.best}</b>
+          <b><Icon name="medal" /> {userState.streak.best}</b>
           <span>макс. стрик (дн.)</span>
         </div>
         <div className="card stat sea">
@@ -121,7 +122,7 @@ const ProfileHeader = React.memo<{
           <span>слов в словаре</span>
         </div>
         <div className="card stat">
-          <b>⚡ {userState.xp}</b>
+          <b><Icon name="bolt" /> {userState.xp}</b>
           <span>опыта всего (XP)</span>
         </div>
       </div>
@@ -260,7 +261,7 @@ const SettingsPanel = React.memo<{
     </div>
     <div className="avatar-upload">
       <label className="btn small">
-        📷 Своё фото
+        <Icon name="camera" /> Своё фото
         <input
           type="file"
           accept="image/*"

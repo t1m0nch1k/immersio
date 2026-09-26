@@ -6,6 +6,7 @@ import { audioService } from '../services/audioService';
 import { DailyPlanCard } from './DailyPlanCard';
 import { ListeningTodayCard } from './ListeningTodayCard';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface LessonListProps {
   userState: UserState;
@@ -195,9 +196,17 @@ export const LessonList: React.FC<LessonListProps> = ({
 
           let statusMarkup = <span style={{ color: 'var(--pine3)' }}>→ открыть</span>;
           if (isDone) {
-            statusMarkup = <span className="ok">✓ пройден · {doneData.pct}%</span>;
+            statusMarkup = (
+              <span className="ok">
+                <Icon name="check-circle" className="sm" /> пройден · {doneData.pct}%
+              </span>
+            );
           } else if (isStandardLocked) {
-            statusMarkup = <span className="lk">🔒</span>;
+            statusMarkup = (
+              <span className="lk">
+                <Icon name="lock" className="sm" />
+              </span>
+            );
           }
 
           return (
@@ -215,7 +224,7 @@ export const LessonList: React.FC<LessonListProps> = ({
               }}
             >
               <div className="lnum">
-                {isDone ? '✓' : String(idx + 1).padStart(2, '0')}
+                {isDone ? <Icon name="check" className="sm" /> : String(idx + 1).padStart(2, '0')}
               </div>
               <div className="lbody">
                 <h3>
@@ -228,7 +237,7 @@ export const LessonList: React.FC<LessonListProps> = ({
                     {'○'.repeat(Math.max(0, 4 - ls.lvl))}
                   </span>
                   {isDone ? (
-                    <span className="chip sea">✓</span>
+                    <span className="chip sea"><Icon name="check" className="sm" /></span>
                   ) : (
                     <span className="chip sun">цель {langProg.immersion}% текста</span>
                   )}

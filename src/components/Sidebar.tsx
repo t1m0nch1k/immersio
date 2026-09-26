@@ -5,6 +5,7 @@ import { audioService } from '../services/audioService';
 import { getImmersionProfile } from '../services/immersionProfile';
 import { Route } from '../routes';
 import { NAV_ITEMS, NavIcon, isNavItemActive } from '../navItems';
+import { Icon } from './icons';
 
 interface SidebarProps {
   currentRoute: Route;
@@ -78,11 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside className={isOpen ? 'drawer open' : 'drawer'} aria-hidden={!isOpen}>
         <div className="drawer-brand">
           <span className="mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M2 8c3-3 5 3 8 0s5 3 8 0" />
-              <path d="M2 13c3-3 5 3 8 0s5 3 8 0" />
-              <path d="M2 18c3-3 5 3 8 0s5 3 8 0" />
-            </svg>
+            <Icon name="waves" strokeWidth={2.5} />
           </span>
           ПОГРУЖЕНИЕ
         </div>
@@ -99,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 tabIndex={isOpen ? 0 : -1}
                 onClick={() => handleNavigate(item.route)}
               >
-                <NavIcon route={item.route} />
+                <NavIcon item={item} />
                 {item.label}
                 {badge && <span className="cnt">{badge}</span>}
               </button>
@@ -121,7 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="track">
             <div className="fill" style={{ width: `${immersion}%` }}></div>
             <div className="diver" style={{ left: `${immersion}%` }}>
-              🤿
+              <Icon name="compass" />
             </div>
           </div>
 

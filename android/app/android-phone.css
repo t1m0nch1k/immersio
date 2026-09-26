@@ -25,6 +25,7 @@
   header .hspace, header .hchip.xp { display: none; }
   header .hmenu { left: 0; right: auto; max-width: calc(100vw - 24px); }
   header > .iconbtn { width: 36px !important; height: 36px !important; flex-shrink: 0; }
+  header > .iconbtn .ic { width: 18px; height: 18px; }
   header > .btn.small, header > #avbtn, header > .avatarbtn { flex-shrink: 0; }
   header > .btn.small { min-height: 36px; padding: 6px 12px; font-size: 12px; }
 

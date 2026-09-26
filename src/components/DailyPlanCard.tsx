@@ -5,6 +5,7 @@ import { StorageService } from '../services/storageService';
 import { toastService } from '../services/toastService';
 import { audioService } from '../services/audioService';
 import { Route } from '../routes';
+import { Icon, type IconName } from './icons';
 
 interface DailyPlanCardProps {
   userState: UserState;
@@ -14,12 +15,12 @@ interface DailyPlanCardProps {
   compact?: boolean;
 }
 
-const taskIcon: Record<StudyTask['type'], string> = {
-  review: '🔁',
-  'new-words': '📗',
-  lesson: '🌊',
-  grammar: '🧠',
-  sprint: '⚡',
+const taskIcon: Record<StudyTask['type'], IconName> = {
+  review: 'refresh',
+  'new-words': 'book-bookmark',
+  lesson: 'waves',
+  grammar: 'document',
+  sprint: 'bolt',
 };
 
 export const DailyPlanCard: React.FC<DailyPlanCardProps> = ({
@@ -81,7 +82,9 @@ export const DailyPlanCard: React.FC<DailyPlanCardProps> = ({
       <div className="daily-tasks">
         {plan.tasks.map((task) => (
           <article className={`daily-task ${task.completed ? 'is-complete' : ''}`} key={task.id}>
-            <div className="daily-task-icon">{task.completed ? '✓' : taskIcon[task.type]}</div>
+            <div className="daily-task-icon">
+              {task.completed ? <Icon name="check" className="sm" /> : <Icon name={taskIcon[task.type]} />}
+            </div>
             <div className="daily-task-body">
               <div className="daily-task-title">{task.title}</div>
               <p>{task.description}</p>

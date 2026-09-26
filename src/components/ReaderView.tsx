@@ -19,6 +19,7 @@ import confetti from 'canvas-confetti';
 import { createSeededRandom } from './seededRandom';
 import { PairSide, usePairsMatching } from './usePairsMatching';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface ReaderViewProps {
   lesson: Lesson;
@@ -475,8 +476,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
               : `🎯 ${immersionStats.immersedConcepts} из ${immersionStats.totalConcepts} ключевых слов`}
           </span>
           <span className="chip">✨ Новых: {immersionStats.newCount}</span>
-          <span className="chip sea">✓ В словаре: {immersionStats.learnedCount}</span>
-          {langProg.doneLessons[lesson.id] && <span className="chip dim">✓ урок пройден</span>}
+          <span className="chip sea"><Icon name="check" className="sm" /> В словаре: {immersionStats.learnedCount}</span>
+          {langProg.doneLessons[lesson.id] && <span className="chip dim"><Icon name="check" className="sm" /> урок пройден</span>}
         </div>
 
         {/* Mode Selector & Quick Immersion Slider */}
@@ -733,11 +734,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                       {q.targetTxt}
                       <button
                         className="iconbtn"
-                        style={{ marginLeft: '10px', verticalAlign: '-3px' }}
+                        style={{ marginLeft: '10px', verticalAlign: 'middle' }}
                         onClick={() => audioService.speak(q.targetTxt, currentLang)}
                         title="Озвучить"
+                        aria-label={`Озвучить ${q.targetTxt}`}
                       >
-                        🔊
+                        <Icon name="volume" />
                       </button>
                     </div>
 

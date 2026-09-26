@@ -7,6 +7,7 @@ import { audioService } from '../services/audioService';
 import confetti from 'canvas-confetti';
 import { AVATARS, LANGUAGE_CODES, shuffle } from '../utils';
 import { buildRussianDistractors, getWord, WORDS_BY_LEVEL } from '../utils/words';
+import { Icon } from './icons';
 
 interface OnboardingModalProps {
   userState: UserState;
@@ -169,7 +170,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         {step === 1 && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'Unbounded', fontWeight: 800, fontSize: '14px', marginBottom: '14px' }}>
-              <div className="mark" style={{ width: '32px', height: '32px' }}>🌊</div>
+              <div className="mark" style={{ width: '32px', height: '32px' }}>
+                <Icon name="waves" strokeWidth={2.5} />
+              </div>
               ПОГРУЖЕНИЕ
             </div>
             <h2 id="onboarding-dialog-title" style={{ fontFamily: 'Unbounded', fontSize: '24px', marginBottom: '10px' }}>
@@ -240,9 +243,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     <button
                       className="iconbtn"
                       style={{ marginLeft: '10px', verticalAlign: 'middle' }}
+                      aria-label="Произнести слово"
                       onClick={() => audioService.speak(q.word, selectedLang)}
                     >
-                      🔊
+                      <Icon name="volume" />
                     </button>
                   </div>
 

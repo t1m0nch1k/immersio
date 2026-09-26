@@ -6,6 +6,7 @@ import { LANGUAGES } from '../data/languages';
 import { StorageService } from '../services/storageService';
 import { audioService } from '../services/audioService';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface DictViewProps {
   userState: UserState;
@@ -116,7 +117,7 @@ export const DictView: React.FC<DictViewProps> = ({
       {/* Search & Category Filter Bar */}
       <div className="dictbar">
         <div className="search">
-          🔍{' '}
+          <Icon name="search" className="lead" />
           <input
             placeholder="Поиск по слову или переводу..."
             value={searchQuery}
@@ -169,8 +170,9 @@ export const DictView: React.FC<DictViewProps> = ({
                   className="iconbtn"
                   onClick={() => audioService.speak(targetTxt, currentLang)}
                   title="Озвучить"
+                  aria-label={`Озвучить ${targetTxt}`}
                 >
-                  🔊
+                  <Icon name="volume" />
                 </button>
 
                 {showAllWords ? (
@@ -182,8 +184,10 @@ export const DictView: React.FC<DictViewProps> = ({
                       else onLearnWord(id);
                     }}
                     title={isLearned ? 'Убрать из личного словаря' : 'Добавить в личный словарь'}
+                    aria-label={isLearned ? 'Убрать из личного словаря' : 'Добавить в личный словарь'}
+                    aria-pressed={isLearned}
                   >
-                    {isLearned ? '✓' : '+'}
+                    <Icon name={isLearned ? 'check-double' : 'plus'} />
                   </button>
                 ) : (
                   <button
@@ -193,8 +197,9 @@ export const DictView: React.FC<DictViewProps> = ({
                       onForgetWord(id);
                     }}
                     title="Забыть слово"
+                    aria-label="Забыть слово"
                   >
-                    ✕
+                    <Icon name="minus" />
                   </button>
                 )}
               </div>
@@ -202,7 +207,7 @@ export const DictView: React.FC<DictViewProps> = ({
           })
         ) : (
           <div className="emptybox">
-            <span className="big">📖</span>
+            <Icon name="book-bookmark" className="big" />
             {sourceIds.length > 0
               ? 'Ничего не найдено по вашему запросу.'
               : 'Словарь пока пуст. Читай уроки и нажимай на жёлтые слова, чтобы добавлять их!'}

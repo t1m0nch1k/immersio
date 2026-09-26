@@ -11,6 +11,7 @@ import {
   withGrammarSession,
 } from '../services/grammarService';
 import { VirtualKeyboard } from './VirtualKeyboard';
+import { Icon } from './icons';
 
 interface Props {
   lesson: GrammarLesson;
@@ -133,7 +134,7 @@ export function GrammarTrainer({ lesson, userState, onUpdateState, onClose }: Pr
       {feedback && <div className={`grammar-feedback ${feedback.correct ? 'is-correct' : 'is-error'}`}>
         <b>{feedback.correct ? 'Получилось' : 'Давай разберём'}</b><p>{feedback.message}</p>
         {!feedback.correct && <p>Образец: <span lang={lang}>{exercise.answer}</span></p>}
-        <button className="btn small" onClick={() => audioService.speak(exercise.mode === 'gap' ? exercise.example.target : exercise.answer, lang)}>🔊 Послушать</button>
+        <button className="btn small" onClick={() => audioService.speak(exercise.mode === 'gap' ? exercise.example.target : exercise.answer, lang)}><Icon name="volume" /> Послушать</button>
         {feedback.correct ? <button className="btn pine" onClick={advance}>Дальше →</button> : <button className="btn sun" onClick={() => { setFeedback(null); checking.current = false; }}>Попробовать снова</button>}
       </div>}
     </div>

@@ -5,6 +5,7 @@ import { ALPHABETS } from '../data/alphabet';
 import { audioService } from '../services/audioService';
 import { VirtualKeyboard } from './VirtualKeyboard';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface AlphabetViewProps {
   userState: UserState;
@@ -69,7 +70,7 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
             aria-label="Произнести набранный текст"
             title="Произнести набранный текст"
           >
-            🔊
+            <Icon name="volume" />
           </button>
         </div>
         <VirtualKeyboard lang={currentLang} value={keyboardText} onChange={setKeyboardText} defaultOpen />
@@ -95,7 +96,7 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
               >
                 <span className="alphabet-index">{String(currentIndex).padStart(2, '0')}</span>
                 <strong>{letter}</strong>
-                <span className="alphabet-sound">🔊</span>
+                <span className="alphabet-sound"><Icon name="volume" className="sm" /></span>
               </button>
             ))}
           </div>
