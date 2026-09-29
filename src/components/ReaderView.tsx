@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Lesson, UserState, Word } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { StorageService, getLocalDateKey } from '../services/storageService';

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LanguageCode, UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { StorageService } from '../services/storageService';

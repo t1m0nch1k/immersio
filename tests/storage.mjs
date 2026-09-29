@@ -93,13 +93,13 @@ count++;
 
 // --- Unknown keys must not survive the load ---
 memory.clear();
-const storedHash = { salt: 'c2FsdA==', hash: 'aGFzaA==', iterations: 210000 };
+const storedUserId = '11111111-2222-3333-4444-555555555555';
 write({
   onboarded: true,
   evil: 'root',
   isAdmin: true,
   languages: { en: { immersion: 40, hack: 1, nested: { deep: true } }, xx: { immersion: 90 } },
-  account: { email: 'a@b.c', isAuth: true, tier: 'pro', passwordHash: storedHash, subscriptionPlan: 'lifetime', subscribedDate: '2026-01-01', secret: 'leak' },
+  account: { email: 'a@b.c', isAuth: true, userId: storedUserId, tier: 'pro', subscriptionPlan: 'lifetime', subscribedDate: '2026-01-01', secret: 'leak' },
   streak: { current: 3, best: 9, lastActiveDate: '2026-01-01', injected: 'x' },
   history: ['2026-01-01', 5, null, '2026-01-02'],
   achievements: ['first', 7, 'five_lessons'],
@@ -117,14 +117,14 @@ assert.deepEqual(Object.keys(clean.languages.en).sort(), [
   'listeningActivity', 'srsData', 'testLvl',
 ].sort(), 'a language progress exposes exactly the known fields');
 assert.deepEqual(Object.keys(clean.account).sort(), [
-  'email', 'isAuth', 'name', 'passwordHash', 'subscribedDate', 'subscriptionPlan', 'tier',
+  'email', 'isAuth', 'name', 'subscribedDate', 'subscriptionPlan', 'tier', 'userId',
 ].sort(), 'the account keeps only declared fields');
 assert.deepEqual(Object.keys(clean.streak), ['current', 'best', 'lastActiveDate']);
 assert.equal(clean.streak.current, 3);
 assert.equal(clean.streak.best, 9);
 assert.equal(clean.languages.en.immersion, 40, 'a valid stored value is preserved');
 assert.equal(clean.account.tier, 'free', 'paid access stays disabled');
-assert.deepEqual(clean.account.passwordHash, storedHash, 'a PBKDF2 record survives a reload');
+assert.equal(clean.account.userId, storedUserId, 'the session owner survives a reload');
 assert.equal(clean.account.subscriptionPlan, 'lifetime');
 assert.equal(clean.account.subscribedDate, '2026-01-01');
 assert.equal(clean.account.isAuth, true);
@@ -133,21 +133,25 @@ assert.deepEqual(clean.achievements, ['first', 'five_lessons'], 'achievements ke
 assert.equal(clean.evil, undefined, 'an unknown root key is not part of the state');
 count += 10;
 
-// --- Legacy password digests are dropped and the session is signed out ---
-for (const legacy of ['a'.repeat(64), 'A1B2'.repeat(16).toLowerCase()]) {
+// --- A session is only believed when it names a user -------------------------
+// The local password profile is gone, so nothing on the device can re-verify a
+// sign-in. A bare `isAuth: true` is exactly the state an older build wrote, and
+// honouring it would show a signed-in header over a device that cannot sync.
+for (const stale of [undefined, '', 42, {}]) {
   memory.clear();
-  write({ onboarded: true, account: { email: 'a@b.c', isAuth: true, passwordHash: legacy } });
-  const migrated = load();
-  assert.equal(migrated.account.passwordHash, undefined, 'a legacy SHA-256 digest is discarded on load');
-  assert.equal(migrated.account.isAuth, false, 'a session backed by an unverifiable digest ends');
-  assert.equal(migrated.account.email, 'a@b.c', 'the rest of the account survives the migration');
+  write({ onboarded: true, account: { email: 'a@b.c', isAuth: true, userId: stale } });
+  const loaded = load();
+  assert.equal(loaded.account.isAuth, false, 'a session without a user id is not a session');
+  assert.equal(loaded.account.userId, undefined, 'a non-string user id is dropped');
+  assert.equal(loaded.account.email, 'a@b.c', 'the rest of the account survives');
   count += 3;
 }
 
-// A record below the iteration floor is not a hash this build produced.
+// A user id that is not a UUID is kept: it is an opaque key, and refusing to
+// store it would sign the person out for a formatting reason.
 memory.clear();
-write({ onboarded: true, account: { isAuth: true, passwordHash: { salt: 'c2FsdA==', hash: 'aGFzaA==', iterations: 1000 } } });
-assert.equal(load().account.passwordHash, undefined, 'a record under the iteration floor is discarded');
+write({ onboarded: true, account: { isAuth: true, userId: 'opaque-but-present' } });
+assert.equal(load().account.isAuth, true, 'a named session survives');
 count += 1;
 
 // --- Scalar fields ---
@@ -510,7 +514,7 @@ Object.assign(rich, {
 });
 rich.account = {
   email: 'artem@example.com', name: 'Артём', isAuth: true, tier: 'free',
-  passwordHash: { salt: 'c2FsdA==', hash: 'aGFzaA==', iterations: 210000 },
+  userId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
   subscriptionPlan: 'monthly', subscribedDate: '2026-02-01',
 };
 const cs = api.StorageService.ensureLangProgress(rich, 'cs');

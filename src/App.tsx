@@ -1,10 +1,20 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserState, Word, Lesson, LanguageCode } from './types';
 import { LESSONS } from './data/lessons';
 import { LANGUAGES } from './data/languages';
 import { StorageService } from './services/storageService';
 import { audioService } from './services/audioService';
 import { toastService } from './services/toastService';
+import { syncService } from './services/syncService';
+import { getSupabase, isSyncConfigured } from './services/supabase';
+import {
+  completeGoogleSignIn,
+  currentSession,
+  isAuthRedirect,
+  onAuthRedirect,
+  signOut,
+} from './services/supabaseAuth';
+import type { User } from '@supabase/supabase-js';
 
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -28,6 +38,20 @@ const ProfileView = React.lazy(() => import('./components/ProfileView').then((mo
 const OnboardingModal = React.lazy(() => import('./components/OnboardingModal').then((module) => ({ default: module.OnboardingModal })));
 
 const BACKGROUND_LETTER_COUNT = 16;
+
+/**
+ * What to call the person.
+ *
+ * Google's display name is the one thing about an account that needs no
+ * translation, and it is the only name the app ever stores now that there is no
+ * local profile to type one into.
+ */
+const resolveDisplayName = (user: User): string => {
+  const fromProvider = user.user_metadata?.full_name ?? user.user_metadata?.name;
+  if (typeof fromProvider === 'string' && fromProvider.trim()) return fromProvider.trim();
+  const email = user.email ?? '';
+  return email.split('@')[0] || 'Студент';
+};
 
 interface BackgroundLetters {
   letter: string;
@@ -110,6 +134,137 @@ export const App: React.FC = () => {
     () => buildBackgroundLetters(userState.currentLang),
     [userState.currentLang]
   );
+
+  /*
+   * Progress mirror.
+   *
+   * `App` owns the only `UserState` in the app, so it is also the only place
+   * that can hand a state pulled from the server to `localStorage` and re-render
+   * from it. The hook is registered here rather than inside `syncService`
+   * because that module has no business knowing how the app stores state.
+   */
+  useEffect(() => {
+    syncService.onRemoteState = (incoming) => {
+      StorageService.save(incoming);
+      setUserState({ ...incoming });
+    };
+    return () => {
+      syncService.onRemoteState = null;
+    };
+  }, []);
+
+  // Every local save is offered to the mirror. Registered after the state owner
+  // so a save triggered while attaching cannot recurse.
+  useEffect(() => {
+    StorageService.onSave((state) => syncService.schedulePush(state));
+    return () => StorageService.onSave(null);
+  }, []);
+
+  /**
+   * Establishes the session on start-up and resolves whatever the redirect left
+   * behind.
+   *
+   * `useState`'s initialiser has to stay synchronous, so this cannot be part of
+   * loading the state: the app renders from localStorage immediately and the
+   * session is layered on top a tick later.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const applySession = async (user: User) => {
+      if (cancelled) return;
+      const displayName = resolveDisplayName(user);
+      const current = StorageService.load();
+      const wasGuest = !current.account.isAuth;
+      const linkedElsewhere = Boolean(current.account.userId) && current.account.userId !== user.id;
+
+      current.account = {
+        ...current.account,
+        email: user.email ?? '',
+        name: displayName,
+        userId: user.id,
+        isAuth: true,
+      };
+      if (wasGuest && !current.name) current.name = displayName;
+      StorageService.save(current);
+      if (!cancelled) setUserState({ ...current });
+      await syncService.attach(current, user.id);
+      if (linkedElsewhere) {
+        showToast('Аккаунт изменён: прогресс этого устройства теперь виден в новом аккаунте.');
+      }
+    };
+
+    const start = async () => {
+      if (!isSyncConfigured()) {
+        await syncService.attach(userState, null);
+        return;
+      }
+      const client = getSupabase();
+      if (!client) return;
+
+      // The handler is installed before anything can redirect, because on a
+      // cold start the redirect arrives while this module is still loading and a
+      // handler added afterwards would never see it.
+      onAuthRedirect((url) => {
+        if (cancelled || !isAuthRedirect(url)) return;
+        void completeGoogleSignIn(client, url).then(applySession).catch((error: unknown) => {
+          showToast(error instanceof Error ? error.message : 'Вход не завершился.');
+        });
+      });
+
+      // A web sign-in returns to the site URL with the code in the query string.
+      if (isAuthRedirect(window.location.href)) {
+        window.history.replaceState({}, '', window.location.pathname);
+        try {
+          await applySession(await completeGoogleSignIn(client, window.location.href));
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : 'Вход не завершился.');
+        }
+        return;
+      }
+
+      const session = await currentSession(client);
+      if (cancelled) return;
+      if (session?.user) {
+        await applySession(session.user);
+      } else {
+        await syncService.attach(userState, null);
+      }
+    };
+
+    void start();
+    return () => {
+      cancelled = true;
+    };
+    // Runs once. `userState` is read as the starting value only; re-running on
+    // every change would re-authenticate on each keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    audioService.playClick();
+    // Order matters. Flushing first gets whatever the last few seconds of
+    // work out to the server; signing out first would leave a queued change with
+    // no valid session to send it and quietly discard it.
+    await syncService.detach();
+    if (isSyncConfigured()) {
+      const client = getSupabase();
+      if (client) await signOut(client);
+    }
+    const next = StorageService.load();
+    // Only the credentials go. `name` is the learner's own, editable in the
+    // profile, and is not derived from the account any more.
+    next.account = {
+      ...next.account,
+      email: '',
+      name: '',
+      userId: undefined,
+      isAuth: false,
+    };
+    StorageService.save(next);
+    setUserState({ ...next });
+    showToast('Выполнен выход. Прогресс остался на этом устройстве.');
+  }, [showToast]);
 
   // Navigation handler
   const handleNavigate = useCallback((route: Route) => {
@@ -388,6 +543,7 @@ export const App: React.FC = () => {
                   onRetakeTest={handleOpenRetake}
                   onResetProgress={handleResetProgress}
                   onOpenAuth={handleOpenAuth}
+                  onSignOut={handleSignOut}
                 />
               )}
             </React.Suspense>
@@ -432,10 +588,12 @@ export const App: React.FC = () => {
       {/* Auth Modal */}
       {showAuthModal && (
         <AuthModal
-          userState={userState}
-          onUpdateState={(updated) => setUserState({ ...updated })}
+          localWordCount={Object.values(userState.languages).reduce(
+            (total, progress) => total + (progress?.learnedWords.length ?? 0),
+            0
+          )}
           onClose={handleCloseAuth}
-          onShowToast={showToast}
+          onStartSignIn={handleCloseAuth}
         />
       )}
 

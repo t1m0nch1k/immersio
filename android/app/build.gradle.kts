@@ -31,6 +31,11 @@ android {
 dependencies {
     implementation("androidx.activity:activity:1.12.3")
     implementation("androidx.webkit:webkit:1.15.0")
+    // Custom Tabs for the Google sign-in flow. Google refuses to render its
+    // OAuth page inside an embedded WebView (`disallowed_useragent`), so the
+    // consent screen has to run in a real browser surface that can send a deep
+    // link back to us.
+    implementation("androidx.browser:browser:1.8.0")
 }
 
 tasks.register<Exec>("bundleWeb") {

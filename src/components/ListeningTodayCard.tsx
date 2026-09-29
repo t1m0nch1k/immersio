@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import {

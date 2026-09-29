@@ -176,31 +176,22 @@ export interface GrammarExerciseProgress {
 
 export type SubscriptionTier = 'free' | 'pro';
 
-/**
- * PBKDF2-HMAC-SHA256 record persisted in `UserAccount.passwordHash`.
- * `salt` and `hash` are base64, `iterations` is the PBKDF2 work factor that was
- * actually used, so the cost can be raised later without invalidating records.
- */
-export interface StoredPasswordHash {
-  salt: string;
-  hash: string;
-  iterations: number;
-}
-
-/**
- * A `string` here is the legacy unsalted SHA-256 hex digest written by older
- * builds. It is never verified: `AuthModal` discards it and asks the user to
- * sign in again. The union keeps `StorageService`, which still forwards stored
- * values verbatim and only checks `typeof === 'string'`, type-safe.
- */
-export type PasswordHash = StoredPasswordHash | string;
-
 export interface UserAccount {
   email: string;
   name: string;
+  /**
+   * True while a Supabase session exists. Derived from the live session rather
+   * than stored, and rebuilt on every pull, so a signed-out device can never be
+   * left looking signed in.
+   */
   isAuth: boolean;
+  /**
+   * The Supabase auth user id, or empty while the app is used as a guest. This
+   * is the only identifier the person has: the app keeps no separate user table
+   * and no password of its own.
+   */
+  userId?: string;
   tier: SubscriptionTier;
-  passwordHash?: PasswordHash;
   subscribedDate?: string;
   subscriptionPlan?: 'monthly' | 'yearly' | 'lifetime';
 }

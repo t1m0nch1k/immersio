@@ -1,7 +1,6 @@
 import { DailyActivity, LanguageCode, Lesson, SRSItem, StudyTask, TextPiece, UserLanguageProgress, UserState, ListeningDayActivity } from '../types';
 import { ACHIEVEMENTS } from '../data/achievements';
 import { audioService } from './audioService';
-import { isLegacyPasswordHash, isStoredPasswordHash } from './passwordHash';
 import { isValidAvatar } from '../utils/avatar';
 
 const STORAGE_KEY = 'pogruzhenie_v2';
@@ -231,7 +230,40 @@ const sanitizeLanguageProgress = (value: unknown): UserLanguageProgress => {
   };
 };
 
+export type SaveListener = (state: UserState) => void;
+
+/**
+ * Told about every successful save.
+ *
+ * The sync engine hangs off this rather than off a React effect. Twenty-four of
+ * the twenty-nine save sites mutate the state in place and pass on a shallow copy
+ * only to force a re-render, and `grammarService`/`listeningService` save without
+ * telling React at all, so an effect keyed on the state would miss writes and
+ * fail silently. A listener here sees every one of them.
+ *
+ * Kept as a settable hook rather than an import so this module stays free of any
+ * dependency on the network layer, and so the storage tests can drive it without
+ * a Supabase client.
+ */
+let saveListener: SaveListener | null = null;
+
+const notifySaved = (state: UserState): void => {
+  if (!saveListener) return;
+  try {
+    saveListener(state);
+  } catch (e) {
+    // A mirror that cannot be written must never take the local write down with
+    // it: the state is already safely in localStorage by this point.
+    console.warn('Save listener failed', e);
+  }
+};
+
 export class StorageService {
+  /** Registers the sync mirror. Pass `null` to detach. */
+  public static onSave(listener: SaveListener | null): void {
+    saveListener = listener;
+  }
+
   public static load(): UserState {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -260,6 +292,7 @@ export class StorageService {
       const isOnboarded = parsed.onboarded === true;
       const darkMode = parsed.darkMode === true;
       const soundEnabled = parsed.soundEnabled;
+      const userId = parsedAccount.userId;
 
       return {
         onboarded: isOnboarded,
@@ -273,16 +306,14 @@ export class StorageService {
         account: {
           email: typeof parsedAccount.email === 'string' ? parsedAccount.email : initial.account.email,
           name: typeof parsedAccount.name === 'string' ? parsedAccount.name : initial.account.name,
-          // A legacy unsalted SHA-256 digest can never be verified, so it is
-          // dropped here instead of lingering in localStorage. The account is
-          // signed out with it, otherwise the UI would promise a session that
-          // the credentials can no longer confirm.
-          isAuth: parsedAccount.isAuth === true && !isLegacyPasswordHash(parsedAccount.passwordHash),
+          // A session is only believed if it names a user. Older builds wrote
+          // `isAuth: true` with no id and nothing that could be re-verified, and
+          // keeping the flag would promise a sign-in that cannot be checked.
+          isAuth: parsedAccount.isAuth === true && typeof userId === 'string' && userId.length > 0,
           // Paid access is disabled for the free catalogue phase.
           tier: 'free',
-          // Optional fields stay only when they still have the declared type,
-          // otherwise `AuthModal` would compare against `undefined` forever.
-          ...(isStoredPasswordHash(parsedAccount.passwordHash) ? { passwordHash: parsedAccount.passwordHash } : {}),
+          // Optional fields stay only when they still have the declared type.
+          ...(typeof userId === 'string' && userId.length > 0 ? { userId } : {}),
           ...(isNonEmptyString(parsedAccount.subscribedDate) ? { subscribedDate: parsedAccount.subscribedDate } : {}),
           ...(subscriptionPlan === 'monthly' || subscriptionPlan === 'yearly' || subscriptionPlan === 'lifetime'
             ? { subscriptionPlan }
@@ -317,7 +348,9 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       console.warn('Failed to save state to localStorage', e);
+      return;
     }
+    notifySaved(state);
   }
 
   public static getLangProgress(state: UserState, lang: LanguageCode): UserLanguageProgress {

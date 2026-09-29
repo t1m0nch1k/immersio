@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { GrammarLesson, UserState } from '../types';
 import { audioService } from '../services/audioService';
 import { StorageService } from '../services/storageService';

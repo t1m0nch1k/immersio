@@ -29,10 +29,12 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.webkit.WebViewAssetLoader
+import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.util.Locale
 
@@ -45,12 +47,25 @@ class MainActivity : ComponentActivity() {
     private var tts: TextToSpeech? = null
     private var isDarkTheme = false
     private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingAuthResult: String? = null
+    private var pendingAuthDelivered = false
 
     private val appHost = "appassets.androidplatform.net"
     private val startUrl = "https://$appHost/assets/www/index.html"
 
     /** Schemes we are willing to hand to the system browser. */
     private val externalSchemes = setOf("http", "https", "mailto")
+
+    /**
+     * Path that marks a Supabase OAuth start. If the bundle ever navigates the
+     * WebView to one of these by itself — the fallback path when the JS bridge is
+     * missing — it is moved into a Custom Tab, because Google refuses to render
+     * its consent page in an embedded WebView. Matching the path rather than a
+     * hostname keeps this working for any project URL, which is build
+     * configuration and not known here.
+     */
+    private val oauthStartPath = "/auth/v1/authorize"
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -168,6 +183,9 @@ class MainActivity : ComponentActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
                 if (url.host == appHost) return false
+                if (url.scheme == "https" && url.path == oauthStartPath) {
+                    return openCustomTab(url)
+                }
                 return openExternally(url)
             }
 
@@ -210,7 +228,10 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun onProgressChanged(view: WebView, newProgress: Int) {
-                if (newProgress >= 100) hideError()
+                if (newProgress >= 100) {
+                    hideError()
+                    flushPendingAuthResult()
+                }
             }
 
             /**
@@ -255,6 +276,7 @@ class MainActivity : ComponentActivity() {
 
         if (savedInstanceState == null) webView.loadUrl(startUrl)
         else webView.restoreState(savedInstanceState)
+        captureAuthResult(intent)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -322,6 +344,88 @@ class MainActivity : ComponentActivity() {
             true
         }
     }
+
+    /**
+     * Opens an OAuth start URL in a Custom Tab.
+     *
+     * A Custom Tab is a browser window inside our own task, so the redirect to
+     * our scheme comes back to this activity instead of leaving the app for a
+     * browser that has no handler for `ru.pogruzhenie.app`. Falls back to the
+     * system browser, which is still better than the WebView: the user can at
+     * least complete the flow, and the redirect will fail loudly rather than
+     * silently.
+     */
+    private fun openCustomTab(url: Uri): Boolean {
+        return try {
+            CustomTabsIntent.Builder()
+                .setShowTitle(true)
+                .build()
+                .launchUrl(this, url)
+            true
+        } catch (error: ActivityNotFoundException) {
+            Log.w(TAG, "No Custom Tabs provider, falling back to the browser", error)
+            openExternally(url)
+        }
+    }
+
+    /**
+     * Called by the system when the OAuth redirect re-enters the app.
+     *
+     * The activity is `singleTask`, so this is an `onNewIntent` on the instance
+     * that already holds the WebView rather than a second copy of the app. The
+     * URL is passed to the bundle as a JSON string rather than interpolated into
+     * a script literal, because it carries a `code` parameter whose contents must
+     * not be able to terminate the expression.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val data = intent.data ?: return
+        if (data.scheme != authScheme || data.host != authHost) return
+        Log.i(TAG, "OAuth redirect received")
+        deliverAuthResult(data.toString())
+    }
+
+    private fun deliverAuthResult(url: String) {
+        if (!::webView.isInitialized) return
+        runOnUiThread {
+            webView.evaluateJavascript("window.$AUTH_RESULT_HANDLER(${JSONObject.quote(url)})", null)
+        }
+    }
+
+    /**
+     * Holds a redirect that arrived before the bundle could receive it.
+     *
+     * The app can be cold-started straight by the redirect — the process was
+     * killed while the consent screen was in front — in which case there is no
+     * WebView to call yet. Handing the URL over immediately would evaluate
+     * JavaScript against a blank page and lose the code, so it waits for the
+     * bundle to finish loading and installs the handler before the redirect
+     * lands.
+     */
+    private fun flushPendingAuthResult() {
+        val pending = pendingAuthResult ?: return
+        if (pendingAuthDelivered) return
+        // The bundle registers its handler on module load; if it is somehow not
+        // there yet, keep the URL and try again on the next load rather than
+        // dropping the sign-in.
+        val ready = webView.evaluateJavascript("typeof window.$AUTH_RESULT_HANDLER === 'function'") { result ->
+            if (result == "true") {
+                pendingAuthDelivered = true
+                deliverAuthResult(pending)
+            }
+        }
+        if (ready == null) pendingAuthDelivered = true
+    }
+
+    /** Consumes `intent.data` when the app was started by the redirect itself. */
+    private fun captureAuthResult(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme != authScheme || data.host != authHost) return
+        Log.i(TAG, "OAuth redirect received on cold start")
+        pendingAuthResult = data.toString()
+        pendingAuthDelivered = false
+    }
+
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
@@ -410,11 +514,29 @@ class MainActivity : ComponentActivity() {
         fun setTheme(dark: Boolean) {
             runOnUiThread { applyTheme(dark) }
         }
+
+        /**
+         * Starts the Google consent flow. The bundle builds the URL because it
+         * owns the PKCE challenge; all this side does is open it somewhere
+         * Google is willing to render.
+         */
+        @JavascriptInterface
+        fun openAuth(url: String) {
+            runOnUiThread { openCustomTab(Uri.parse(url)) }
+        }
     }
 
     private companion object {
         const val TAG = "Pogruzhenie"
         const val FILE_CHOOSER_REQUEST = 4711
+
+        /** Must match `redirectTo` in `src/services/supabaseAuth.ts`. */
+        const val authScheme = "ru.pogruzhenie.app"
+        const val authHost = "auth-callback"
+
+        /** Global the bundle installs to receive the redirect URL. */
+        const val AUTH_RESULT_HANDLER = "__pogruzhenieAuthResult"
+
 
         /**
          * `WebSettings.MIXED_CONTENT_NEVER_ALLOW` by value. The bundle is served

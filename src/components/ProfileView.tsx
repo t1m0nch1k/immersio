@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { LanguageCode, UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { ACHIEVEMENTS } from '../data/achievements';
@@ -10,6 +10,7 @@ import { WORDS_BY_LEVEL } from '../utils/words';
 import { fileToAvatarDataUrl, isAvatarPhoto } from '../utils/avatar';
 import { toastService } from '../services/toastService';
 import { Icon } from './icons';
+import { SyncPanel } from './SyncPanel';
 
 interface ProfileViewProps {
   userState: UserState;
@@ -17,6 +18,7 @@ interface ProfileViewProps {
   onRetakeTest: () => void;
   onResetProgress: () => void;
   onOpenAuth: () => void;
+  onSignOut: () => void;
 }
 
 const LEVELS = [1, 2, 3, 4] as const;
@@ -330,6 +332,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onRetakeTest,
   onResetProgress,
   onOpenAuth,
+  onSignOut,
 }) => {
   const { currentRank, nextRank, nextXp } = StorageService.getRank(userState.xp);
   const xpPct = nextRank ? Math.min(100, Math.round((userState.xp / nextXp) * 100)) : 100;
@@ -395,28 +398,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     onUpdateState({ ...userState });
   }, [userState, onUpdateState]);
 
-  const handleLogout = useCallback(() => {
-    audioService.playClick();
-    // Logging out has to forget the credentials, not just flip a flag: the whole
-    // state lives in one localStorage entry, so leaving the derived key behind
-    // keeps the profile recoverable by anyone with devtools open. Learning
-    // progress (xp, streak, words, achievements, history) is kept intact.
-    userState.account = {
-      ...userState.account,
-      email: '',
-      name: '',
-      passwordHash: undefined,
-      subscribedDate: undefined,
-      subscriptionPlan: undefined,
-      tier: 'free',
-      isAuth: false,
-    };
-    // `userState.name` mirrors the account display name, which on registration
-    // defaults to the e-mail local part, so it is a leftover credential too.
-    userState.name = '';
-    StorageService.save(userState);
-    onUpdateState({ ...userState });
-  }, [userState, onUpdateState]);
 
   return (
     <div className="view">
@@ -446,29 +427,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </div>
 
-      {/* Account Info & Auth status */}
-      <div className="card" style={{ marginTop: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--pine3)' }}>
-              Учётная запись
-            </div>
-            <div style={{ fontSize: '16px', fontWeight: 700, marginTop: '4px' }}>
-              {userState.account.isAuth ? userState.account.email : 'Гостевой режим'}
-            </div>
-          </div>
+      <SyncPanel
+        email={userState.account.email}
+        isAuth={userState.account.isAuth}
+        onSignIn={onOpenAuth}
+        onSignOut={onSignOut}
+      />
 
-          {userState.account.isAuth ? (
-            <button className="btn small danger" type="button" onClick={handleLogout}>
-              Выйти из аккаунта
-            </button>
-          ) : (
-            <button className="btn small sun" type="button" onClick={onOpenAuth}>
-              Зарегистрироваться / Войти
-            </button>
-          )}
-        </div>
-      </div>
 
       <MasteryGrid userState={userState} today={today} />
 
