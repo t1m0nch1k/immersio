@@ -22,6 +22,8 @@ import { Sidebar } from './components/Sidebar';
 import { LessonList } from './components/LessonList';
 import { WordCardModal } from './components/WordCardModal';
 import { AuthModal } from './components/AuthModal';
+import { UpdateModal } from './components/UpdateModal';
+import { UpdateService, UpdateCheckResult } from './services/updateService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Route } from './routes';
 
@@ -95,6 +97,8 @@ export const App: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState<boolean>(!userState.onboarded);
   const [isRetakeOnly, setIsRetakeOnly] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
 
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -108,6 +112,35 @@ export const App: React.FC = () => {
       toastTimerRef.current = null;
     }, 2800);
   }, []);
+
+  // Background update check on app launch
+  useEffect(() => {
+    const updateService = UpdateService.getInstance();
+    updateService
+      .checkForUpdates()
+      .then((res) => {
+        if (res.hasUpdate) {
+          setUpdateResult(res);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleCheckUpdatesManual = useCallback(() => {
+    setShowUpdateModal(true);
+    const updateService = UpdateService.getInstance();
+    updateService
+      .checkForUpdates()
+      .then((res) => {
+        setUpdateResult(res);
+        if (!res.hasUpdate && !res.error) {
+          showToast('У вас уже установлена самая актуальная версия!');
+        }
+      })
+      .catch((err) => {
+        showToast(`Ошибка проверки: ${err instanceof Error ? err.message : String(err)}`);
+      });
+  }, [showToast]);
 
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -442,6 +475,8 @@ export const App: React.FC = () => {
         onToggleSound={handleToggleSound}
         onOpenNav={handleOpenNav}
         onOpenAuth={handleOpenAuth}
+        hasUpdate={Boolean(updateResult?.hasUpdate)}
+        onOpenUpdates={() => setShowUpdateModal(true)}
       />
 
       {/* Layout Shell */}
@@ -549,6 +584,7 @@ export const App: React.FC = () => {
                   onResetProgress={handleResetProgress}
                   onOpenAuth={handleOpenAuth}
                   onSignOut={handleSignOut}
+                  onCheckUpdates={handleCheckUpdatesManual}
                 />
               )}
             </React.Suspense>
@@ -600,6 +636,15 @@ export const App: React.FC = () => {
           )}
           onClose={handleCloseAuth}
           onStartSignIn={handleCloseAuth}
+        />
+      )}
+
+      {/* Update Modal */}
+      {showUpdateModal && (
+        <UpdateModal
+          checkResult={updateResult}
+          onClose={() => setShowUpdateModal(false)}
+          onReload={() => UpdateService.getInstance().reloadApp()}
         />
       )}
 

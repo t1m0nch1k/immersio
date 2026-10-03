@@ -15,13 +15,6 @@ import { getSupabase, isSyncConfigured } from './supabase';
  * stolen authorization code is useless on its own.
  */
 
-declare global {
-  interface Window {
-    AndroidHost?: { openAuth?: (url: string) => void };
-    /** Installed by the shell; see `AUTH_RESULT_HANDLER` in MainActivity.kt. */
-    __pogruzhenieAuthResult?: (url: string) => void;
-  }
-}
 
 /** Must match `authScheme`/`authHost` in the Android manifest. */
 export const ANDROID_REDIRECT_URI = 'ru.pogruzhenie.app://auth-callback';

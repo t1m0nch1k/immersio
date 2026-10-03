@@ -28,16 +28,26 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
 import java.util.Locale
+import java.util.zip.ZipInputStream
 
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
@@ -45,6 +55,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var errorPanel: LinearLayout
     private lateinit var errorDetail: TextView
     private lateinit var controller: WindowInsetsControllerCompat
+    private lateinit var liveBundleDir: File
+    private lateinit var liveBundleVersionFile: File
     private var tts: TextToSpeech? = null
     private var isDarkTheme = false
     private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
@@ -141,8 +153,11 @@ class MainActivity : ComponentActivity() {
         controller = WindowInsetsControllerCompat(window, root)
         applyTheme(isDarkTheme)
 
+        liveBundleDir = File(filesDir, "live_bundle")
+        liveBundleVersionFile = File(filesDir, "live_bundle_version.txt")
+
         val assetLoader = WebViewAssetLoader.Builder()
-            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .addPathHandler("/assets/", LiveOrAssetPathHandler(liveBundleDir, WebViewAssetLoader.AssetsPathHandler(this)))
             .build()
         webView.settings.apply {
             javaScriptEnabled = true
@@ -196,7 +211,13 @@ class MainActivity : ComponentActivity() {
                 // Sub-resource failures are noise; only a broken main frame leaves
                 // the user staring at an empty WebView.
                 if (!request.isForMainFrame) return
-                Log.e(TAG, "Main frame failed: ${error.errorCode} ${error.description} $request.url")
+                Log.e(TAG, "Main frame failed: ${error.errorCode} ${error.description} ${request.url}")
+                if (::liveBundleDir.isInitialized && liveBundleDir.exists()) {
+                    Log.w(TAG, "Live bundle failed to load main frame, rolling back to APK assets")
+                    rollbackLiveBundle()
+                    view.loadUrl(startUrl)
+                    return
+                }
                 showError(getString(R.string.error_detail, error.description.toString()))
             }
 
@@ -533,7 +554,7 @@ class MainActivity : ComponentActivity() {
         fun cancel() = runOnUiThread { tts?.stop() }
     }
 
-    /** Shell-side plumbing the web bundle asks for: external links and theming. */
+    /** Shell-side plumbing the web bundle asks for: external links, theming, and updates. */
     private inner class NativeHost {
         @JavascriptInterface
         fun openExternal(url: String) {
@@ -553,6 +574,349 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface
         fun openAuth(url: String) {
             runOnUiThread { openCustomTab(Uri.parse(url)) }
+        }
+
+        @JavascriptInterface
+        fun getAppInfo(): String {
+            val pInfo = packageManager.getPackageInfo(packageName, 0)
+            val nativeVersion = pInfo.versionName ?: "0.1.0"
+            val nativeCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                pInfo.versionCode.toLong()
+            }
+            val bundleVer = if (::liveBundleVersionFile.isInitialized && liveBundleVersionFile.exists()) {
+                liveBundleVersionFile.readText().trim()
+            } else {
+                "built-in"
+            }
+            val json = JSONObject().apply {
+                put("appVersion", nativeVersion)
+                put("appBuild", nativeCode)
+                put("bundleVersion", bundleVer)
+                put("hasLiveBundle", ::liveBundleDir.isInitialized && liveBundleDir.exists())
+                put("isNative", true)
+            }
+            return json.toString()
+        }
+
+        @JavascriptInterface
+        fun downloadAndApplyBundle(bundleUrl: String, expectedSha256: String, newBundleVersion: String) {
+            Thread {
+                try {
+                    val tempZip = File(cacheDir, "bundle_update.zip")
+                    val stagingDir = File(filesDir, "live_bundle_staging")
+
+                    postJs("window.__onUpdateProgress && window.__onUpdateProgress({ stage: 'downloading', percent: 0 })")
+
+                    val downloaded = downloadFile(bundleUrl, tempZip) { percent ->
+                        postJs("window.__onUpdateProgress && window.__onUpdateProgress({ stage: 'downloading', percent: $percent })")
+                    }
+
+                    if (!downloaded || !tempZip.exists() || tempZip.length() == 0L) {
+                        postJs("window.__onUpdateError && window.__onUpdateError({ error: 'download_failed', message: 'Не удалось скачать архив обновления' })")
+                        tempZip.delete()
+                        return@Thread
+                    }
+
+                    if (expectedSha256.isNotBlank()) {
+                        postJs("window.__onUpdateProgress && window.__onUpdateProgress({ stage: 'verifying', percent: 100 })")
+                        val actualSha256 = computeSha256(tempZip)
+                        if (!actualSha256.equals(expectedSha256.trim(), ignoreCase = true)) {
+                            Log.e(TAG, "SHA256 mismatch: expected=$expectedSha256 actual=$actualSha256")
+                            postJs("window.__onUpdateError && window.__onUpdateError({ error: 'sha256_mismatch', message: 'Несовпадение контрольной суммы бандла' })")
+                            tempZip.delete()
+                            return@Thread
+                        }
+                    }
+
+                    postJs("window.__onUpdateProgress && window.__onUpdateProgress({ stage: 'unpacking', percent: 100 })")
+                    val unzipped = unzipBundle(tempZip, stagingDir)
+                    tempZip.delete()
+
+                    if (!unzipped) {
+                        postJs("window.__onUpdateError && window.__onUpdateError({ error: 'unpack_failed', message: 'Не удалось распаковать файлы обновления' })")
+                        stagingDir.deleteRecursively()
+                        return@Thread
+                    }
+
+                    // Atomic swap
+                    if (liveBundleDir.exists()) {
+                        liveBundleDir.deleteRecursively()
+                    }
+                    stagingDir.renameTo(liveBundleDir)
+                    liveBundleVersionFile.writeText(newBundleVersion)
+
+                    Log.i(TAG, "OTA Bundle updated to $newBundleVersion successfully")
+                    postJs("window.__onUpdateComplete && window.__onUpdateComplete({ type: 'bundle', version: '$newBundleVersion' })")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to apply bundle update", e)
+                    val safeMsg = e.message?.replace("'", "\\'") ?: "Unknown error"
+                    postJs("window.__onUpdateError && window.__onUpdateError({ error: 'exception', message: '$safeMsg' })")
+                }
+            }.start()
+        }
+
+        @JavascriptInterface
+        fun reloadApp() {
+            runOnUiThread {
+                hideError()
+                webView.loadUrl(startUrl)
+            }
+        }
+
+        @JavascriptInterface
+        fun rollbackBundle() {
+            rollbackLiveBundle()
+            runOnUiThread {
+                hideError()
+                webView.loadUrl(startUrl)
+            }
+        }
+
+        @JavascriptInterface
+        fun downloadAndInstallApk(apkUrl: String, expectedSha256: String) {
+            Thread {
+                try {
+                    val updatesDir = File(cacheDir, "updates")
+                    updatesDir.mkdirs()
+                    val apkFile = File(updatesDir, "update.apk")
+
+                    postJs("window.__onUpdateProgress && window.__onUpdateProgress({ stage: 'downloading_apk', percent: 0 })")
+
+                    val downloaded = downloadFile(apkUrl, apkFile) { percent ->
+                        postJs("window.__onUpdateProgress && window.__onUpdateProgress({ stage: 'downloading_apk', percent: $percent })")
+                    }
+
+                    if (!downloaded || !apkFile.exists() || apkFile.length() == 0L) {
+                        postJs("window.__onUpdateError && window.__onUpdateError({ error: 'download_failed', message: 'Не удалось скачать APK обновления' })")
+                        apkFile.delete()
+                        return@Thread
+                    }
+
+                    if (expectedSha256.isNotBlank()) {
+                        val actualSha256 = computeSha256(apkFile)
+                        if (!actualSha256.equals(expectedSha256.trim(), ignoreCase = true)) {
+                            Log.e(TAG, "APK SHA256 mismatch: expected=$expectedSha256 actual=$actualSha256")
+                            postJs("window.__onUpdateError && window.__onUpdateError({ error: 'sha256_mismatch', message: 'Несовпадение контрольной суммы APK' })")
+                            apkFile.delete()
+                            return@Thread
+                        }
+                    }
+
+                    runOnUiThread {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            if (!packageManager.canRequestPackageInstalls()) {
+                                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                    data = Uri.parse("package:$packageName")
+                                }
+                                startActivity(intent)
+                                postJs("window.__onUpdateError && window.__onUpdateError({ error: 'permission_needed', message: 'Разрешите установку приложений в настройках и повторите' })")
+                                return@runOnUiThread
+                            }
+                        }
+
+                        try {
+                            val apkUri = FileProvider.getUriForFile(
+                                this@MainActivity,
+                                "ru.pogruzhenie.app.fileprovider",
+                                apkFile
+                            )
+                            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            }
+                            startActivity(installIntent)
+                            postJs("window.__onUpdateComplete && window.__onUpdateComplete({ type: 'apk' })")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to launch package installer", e)
+                            val safeMsg = e.message?.replace("'", "\\'") ?: "Launch failed"
+                            postJs("window.__onUpdateError && window.__onUpdateError({ error: 'install_launch_failed', message: 'Не удалось запустить установку APK: $safeMsg' })")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to download APK", e)
+                    val safeMsg = e.message?.replace("'", "\\'") ?: "Download failed"
+                    postJs("window.__onUpdateError && window.__onUpdateError({ error: 'exception', message: '$safeMsg' })")
+                }
+            }.start()
+        }
+    }
+
+    private inner class LiveOrAssetPathHandler(
+        private val liveDir: File,
+        private val assetsHandler: WebViewAssetLoader.AssetsPathHandler
+    ) : WebViewAssetLoader.PathHandler {
+        override fun handle(path: String): WebResourceResponse? {
+            if (liveDir.exists() && liveDir.isDirectory) {
+                val targetFile = File(liveDir, path)
+                try {
+                    if (targetFile.canonicalPath.startsWith(liveDir.canonicalPath) && targetFile.exists() && targetFile.isFile) {
+                        val mimeType = getMimeType(path)
+                        val encoding = if (mimeType.startsWith("text/") || mimeType == "application/javascript" || mimeType == "application/json") "UTF-8" else null
+                        return WebResourceResponse(mimeType, encoding, FileInputStream(targetFile))
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Live handler failed for $path", e)
+                }
+            }
+            return assetsHandler.handle(path)
+        }
+
+        private fun getMimeType(path: String): String {
+            val ext = path.substringAfterLast('.', "").lowercase(Locale.ROOT)
+            return when (ext) {
+                "html" -> "text/html"
+                "css" -> "text/css"
+                "js", "mjs" -> "application/javascript"
+                "json" -> "application/json"
+                "png" -> "image/png"
+                "jpg", "jpeg" -> "image/jpeg"
+                "svg" -> "image/svg+xml"
+                "webp" -> "image/webp"
+                "ico" -> "image/x-icon"
+                "woff" -> "font/woff"
+                "woff2" -> "font/woff2"
+                "ttf" -> "font/ttf"
+                "mp3" -> "audio/mpeg"
+                "wav" -> "audio/wav"
+                "ogg" -> "audio/ogg"
+                else -> "application/octet-stream"
+            }
+        }
+    }
+
+    private fun postJs(js: String) {
+        runOnUiThread {
+            if (::webView.isInitialized) {
+                webView.evaluateJavascript(js, null)
+            }
+        }
+    }
+
+    private fun rollbackLiveBundle() {
+        try {
+            if (::liveBundleDir.isInitialized && liveBundleDir.exists()) {
+                liveBundleDir.deleteRecursively()
+            }
+            if (::liveBundleVersionFile.isInitialized && liveBundleVersionFile.exists()) {
+                liveBundleVersionFile.delete()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to rollback live bundle", e)
+        }
+    }
+
+    private fun computeSha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { fis ->
+            val buffer = ByteArray(8192)
+            var read: Int
+            while (fis.read(buffer).also { read = it } != -1) {
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun downloadFile(urlStr: String, destFile: File, onProgress: (percent: Int) -> Unit): Boolean {
+        var connection: HttpURLConnection? = null
+        return try {
+            val url = URL(urlStr)
+            connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 15000
+            connection.readTimeout = 30000
+            connection.instanceFollowRedirects = true
+            connection.connect()
+
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) {
+                Log.e(TAG, "Download failed with HTTP $responseCode")
+                return false
+            }
+
+            val totalLength = connection.contentLength
+            destFile.parentFile?.mkdirs()
+
+            connection.inputStream.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    var totalBytesRead = 0L
+                    var lastPercent = -1
+
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                        totalBytesRead += bytesRead
+                        if (totalLength > 0) {
+                            val percent = ((totalBytesRead * 100) / totalLength).toInt().coerceIn(0, 100)
+                            if (percent != lastPercent) {
+                                lastPercent = percent
+                                onProgress(percent)
+                            }
+                        }
+                    }
+                }
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Download error", e)
+            false
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+    private fun unzipBundle(zipFile: File, destDir: File): Boolean {
+        return try {
+            if (destDir.exists()) destDir.deleteRecursively()
+            destDir.mkdirs()
+
+            val wwwDir = File(destDir, "www")
+            wwwDir.mkdirs()
+
+            var hasWwwPrefix = false
+            ZipInputStream(FileInputStream(zipFile)).use { zis ->
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    if (entry.name.startsWith("www/")) {
+                        hasWwwPrefix = true
+                        break
+                    }
+                    entry = zis.nextEntry
+                }
+            }
+
+            ZipInputStream(FileInputStream(zipFile)).use { zis ->
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    val relPath = if (hasWwwPrefix) entry.name.removePrefix("www/") else entry.name
+                    if (relPath.isNotBlank()) {
+                        val newFile = File(wwwDir, relPath)
+                        if (!newFile.canonicalPath.startsWith(wwwDir.canonicalPath)) {
+                            Log.e(TAG, "Security violation: zip entry outside dest dir: ${entry.name}")
+                            return false
+                        }
+                        if (entry.isDirectory) {
+                            newFile.mkdirs()
+                        } else {
+                            newFile.parentFile?.mkdirs()
+                            FileOutputStream(newFile).use { fos ->
+                                zis.copyTo(fos)
+                            }
+                        }
+                    }
+                    zis.closeEntry()
+                    entry = zis.nextEntry
+                }
+            }
+
+            val indexHtml = File(wwwDir, "index.html")
+            indexHtml.exists() && indexHtml.length() > 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to unzip bundle", e)
+            false
         }
     }
 

@@ -29,3 +29,7 @@ android/app/src/main/assets/www/
 # Standalone design prototypes, kept out of the repository
 /redesign-example/
 /Qwen_html_*.html
+
+# Release binaries (uploaded to GitHub Releases)
+updates/*.apk
+updates/*.zip

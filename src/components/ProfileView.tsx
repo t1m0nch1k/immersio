@@ -9,6 +9,7 @@ import { AVATARS, LANGUAGE_CODES, LEVEL_LABELS } from '../utils';
 import { WORDS_BY_LEVEL } from '../utils/words';
 import { fileToAvatarDataUrl, isAvatarPhoto } from '../utils/avatar';
 import { toastService } from '../services/toastService';
+import { getAppVersionInfo, UpdateService } from '../services/updateService';
 import { Icon } from './icons';
 import { SyncPanel } from './SyncPanel';
 
@@ -19,6 +20,7 @@ interface ProfileViewProps {
   onResetProgress: () => void;
   onOpenAuth: () => void;
   onSignOut: () => void;
+  onCheckUpdates?: () => void;
 }
 
 const LEVELS = [1, 2, 3, 4] as const;
@@ -326,6 +328,58 @@ const SettingsPanel = React.memo<{
 ));
 SettingsPanel.displayName = 'SettingsPanel';
 
+const AppUpdateCard = React.memo<{ onCheckUpdates?: () => void }>(({ onCheckUpdates }) => {
+  const versionInfo = useMemo(() => getAppVersionInfo(), []);
+
+  return (
+    <div className="card" style={{ marginTop: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div style={{ fontFamily: 'Unbounded', fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>🔄</span> Обновление приложения
+          </div>
+          <div style={{ fontSize: '13px', marginTop: '6px', color: 'var(--text-muted, #666)' }}>
+            <div>Версия приложения: <b>v{versionInfo.appVersion}</b> (сборка {versionInfo.appBuild})</div>
+            <div style={{ marginTop: '3px' }}>
+              Веб-бандл: <b>{versionInfo.bundleVersion}</b>{' '}
+              {versionInfo.hasLiveBundle ? (
+                <span className="chip sun" style={{ fontSize: '11px', padding: '1px 6px' }}>OTA live</span>
+              ) : (
+                <span className="chip" style={{ fontSize: '11px', padding: '1px 6px' }}>встроенный</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            className="btn small"
+            type="button"
+            onClick={() => onCheckUpdates?.()}
+            style={{ fontWeight: 600 }}
+          >
+            🔍 Проверить обновления
+          </button>
+          {versionInfo.hasLiveBundle && (
+            <button
+              className="btn small"
+              type="button"
+              onClick={() => {
+                if (window.confirm('Сбросить скачанное OTA-обновление и вернуться к встроенной в APK версии?')) {
+                  UpdateService.getInstance().rollbackToAssets();
+                }
+              }}
+              title="Откат к базовой встроенной версии"
+            >
+              Сброс OTA
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+AppUpdateCard.displayName = 'AppUpdateCard';
+
 export const ProfileView: React.FC<ProfileViewProps> = ({
   userState,
   onUpdateState,
@@ -333,6 +387,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onResetProgress,
   onOpenAuth,
   onSignOut,
+  onCheckUpdates,
 }) => {
   const { currentRank, nextRank, nextXp } = StorageService.getRank(userState.xp);
   const xpPct = nextRank ? Math.min(100, Math.round((userState.xp / nextXp) * 100)) : 100;
@@ -433,6 +488,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         onSignIn={onOpenAuth}
         onSignOut={onSignOut}
       />
+
+      <AppUpdateCard onCheckUpdates={onCheckUpdates} />
 
 
       <MasteryGrid userState={userState} today={today} />

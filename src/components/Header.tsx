@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { UserState, LanguageCode } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { audioService } from '../services/audioService';
@@ -16,6 +16,8 @@ interface HeaderProps {
   onOpenNav: () => void;
   onToggleSound: () => void;
   onOpenAuth: () => void;
+  hasUpdate?: boolean;
+  onOpenUpdates?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +28,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSound,
   onOpenNav,
   onOpenAuth,
+  hasUpdate,
+  onOpenUpdates,
 }) => {
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const langPickerRef = useRef<HTMLDivElement>(null);
@@ -186,6 +190,34 @@ export const Header: React.FC<HeaderProps> = ({
       >
         <Icon name={userState.soundEnabled ? 'volume' : 'volume-off'} />
       </button>
+
+      {/* Online update badge button */}
+      {hasUpdate && (
+        <button
+          className="iconbtn"
+          type="button"
+          onClick={() => {
+            audioService.playClick();
+            onOpenUpdates?.();
+          }}
+          title="Доступно обновление приложения!"
+          aria-label="Доступно обновление"
+          style={{ position: 'relative', fontSize: '1.1rem' }}
+        >
+          🚀
+          <span
+            style={{
+              position: 'absolute',
+              top: '4px',
+              right: '4px',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: '#ff3b30'
+            }}
+          />
+        </button>
+      )}
 
       {/* Auth / Avatar button */}
       {userState.account.isAuth ? (
