@@ -56,6 +56,7 @@ export type WordCategory =
 export interface CategoryInfo {
   id: WordCategory;
   emoji: string;
+  icon: string;
   title: string;
 }
 
@@ -236,6 +237,7 @@ export interface UserState {
 export interface Achievement {
   id: string;
   ico: string;
+  iconName?: string;
   name: string;
   desc: string;
   condition: (state: UserState) => boolean;

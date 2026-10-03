@@ -7,6 +7,7 @@ import {
   setCustomUpdateUrl,
   DEFAULT_UPDATE_URL
 } from '../services/updateService';
+import { Icon } from './icons';
 
 interface UpdateModalProps {
   checkResult: UpdateCheckResult | null;
@@ -93,8 +94,16 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ checkResult, onClose, 
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '24px' }}>
-              {isReady ? '🎉' : isError ? '⚠️' : isUpdating ? '⏳' : '🚀'}
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+              {isReady ? (
+                <Icon name="check-circle" size={26} style={{ color: 'var(--sea)' }} />
+              ) : isError ? (
+                <Icon name="alert-triangle" size={26} style={{ color: 'var(--coral)' }} />
+              ) : isUpdating ? (
+                <Icon name="timer" size={26} style={{ color: 'var(--amber, #f5a623)' }} />
+              ) : (
+                <Icon name="rocket" size={26} style={{ color: 'var(--sea)' }} />
+              )}
             </span>
             <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>
               {isReady
@@ -114,14 +123,15 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ checkResult, onClose, 
               style={{
                 background: 'none',
                 border: 'none',
-                fontSize: '22px',
                 cursor: 'pointer',
                 color: 'var(--text-muted, #777)',
-                padding: '4px'
+                padding: '4px',
+                display: 'inline-flex',
+                alignItems: 'center'
               }}
               title="Закрыть"
             >
-              ✕
+              <Icon name="x" size={20} />
             </button>
           )}
         </div>
@@ -136,10 +146,21 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ checkResult, onClose, 
                   padding: '3px 8px',
                   borderRadius: '6px',
                   fontSize: '0.8rem',
-                  fontWeight: 600
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
                 }}
               >
-                {checkResult.updateType === 'apk' ? '📦 Нативный APK' : '⚡ Быстрое OTA-обновление'}
+                {checkResult.updateType === 'apk' ? (
+                  <>
+                    <Icon name="package" className="sm" /> Нативный APK
+                  </>
+                ) : (
+                  <>
+                    <Icon name="bolt" className="sm" /> Быстрое OTA-обновление
+                  </>
+                )}
               </span>
               {manifest.bundleSizeBytes && (
                 <span
@@ -301,7 +322,15 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ checkResult, onClose, 
               padding: 0
             }}
           >
-            {showAdvanced ? '▲ Скрыть настройки источника' : '⚙️ Настройки источника обновлений'}
+            {showAdvanced ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Icon name="chevron-up" className="sm" /> Скрыть настройки источника
+              </span>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Icon name="gear" className="sm" /> Настройки источника обновлений
+              </span>
+            )}
           </button>
 
           {showAdvanced && (

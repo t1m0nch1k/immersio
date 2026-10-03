@@ -465,17 +465,17 @@ let depthNote = '';
           currentProgress.depthLessons = depth.lessonsAtDepth;
           if (depth.moved === 'up') {
             streakMsg = '';
-            depthNote = `🌊 Глубина выросла: ${from}% → ${depth.immersion}% — закрепи на следующих ${IMMERSION_LESSONS_PER_STEP} уроках.`;
+            depthNote = `Глубина выросла: ${from}% → ${depth.immersion}% — закрепи на следующих ${IMMERSION_LESSONS_PER_STEP} уроках.`;
           } else if (depth.moved === 'down') {
-            depthNote = `🌊 Глубина снижена: ${from}% → ${depth.immersion}%.`;
+            depthNote = `Глубина снижена: ${from}% → ${depth.immersion}%.`;
           }
         }
 
         const streakResult = StorageService.updateStreak(userState);
         if (streakResult.updated) {
-          streakMsg = `🔥 Стрик: ${userState.streak.current} дн. — так держать!`;
+          streakMsg = `Стрик: ${userState.streak.current} дн. — так держать!`;
         } else {
-          streakMsg = '✅ Сегодняшний стрик уже засчитан.';
+          streakMsg = 'Сегодняшний стрик уже засчитан.';
         }
         if (depthNote) {
           streakMsg = streakMsg ? `${streakMsg} | ${depthNote}` : depthNote;
@@ -526,12 +526,14 @@ let depthNote = '';
               text, so 60% of a 50-word text is 30 words — and only `actualShare`
               says how many were really shown. */}
           <span className="chip sun">
-            🌊 {immersionStats.actualShare}% слов на языке
+            <Icon name="waves" className="sm" /> {immersionStats.actualShare}% слов на языке
           </span>
           <span className="chip">
-            🎯 {immersionStats.immersedConcepts} из {immersionStats.totalConcepts} переводимых слов
+            <Icon name="target" className="sm" /> {immersionStats.immersedConcepts} из {immersionStats.totalConcepts} переводимых слов
           </span>
-          <span className="chip">✨ Новых: {immersionStats.newCount}</span>
+          <span className="chip">
+            <Icon name="sparkles" className="sm" /> Новых: {immersionStats.newCount}
+          </span>
           <span className="chip sea"><Icon name="check" className="sm" /> В словаре: {immersionStats.learnedCount}</span>
           {langProg.doneLessons[lesson.id] && <span className="chip dim"><Icon name="check" className="sm" /> урок пройден</span>}
         </div>
@@ -546,7 +548,7 @@ let depthNote = '';
                 setReadMode('immersion');
               }}
             >
-              🌊 Погружение ({langProg.immersion}%)
+              <Icon name="waves" className="sm" /> Погружение ({langProg.immersion}%)
             </button>
             {localizedSentences && (
               <button
@@ -556,7 +558,7 @@ let depthNote = '';
                   setReadMode('original');
                 }}
               >
-                📖 Оригинал ({LANGUAGES[currentLang].name})
+                <Icon name="book-open" className="sm" /> Оригинал ({LANGUAGES[currentLang].name})
               </button>
             )}
             <button
@@ -566,7 +568,7 @@ let depthNote = '';
                 setReadMode('russian');
               }}
             >
-              🇷🇺 Русский
+              Русский
             </button>
           </div>
 
@@ -640,8 +642,8 @@ let depthNote = '';
                       that have an entry in this language can follow it. So the
                       banner reports what was achieved and names the ceiling,
                       instead of claiming the text is fully translated. */}
-                  <span>
-                    🎉 <b>Глубина {langProg.immersion}%:</b>{' '}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Icon name="trophy" className="sm" /> <b>Глубина {langProg.immersion}%:</b>{' '}
                     {immersionStats.actualShare}% слов текста на {LANGUAGES[currentLang].name}.{' '}
                     {immersionStats.actualShare < langProg.immersion
                       ? `Остальное не переводится автоматически: в этом языке есть запись только для ${immersionStats.totalConcepts} из ${immersionStats.totalWords} слов.`
@@ -663,8 +665,8 @@ let depthNote = '';
 
           {readMode === 'original' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--ink2)' }}>
-                💡 Нажми на любое слово, чтобы услышать произношение и посмотреть перевод
+              <span style={{ fontSize: '13px', color: 'var(--ink2)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Icon name="lightbulb" className="sm" /> Нажми на любое слово, чтобы услышать произношение и посмотреть перевод
               </span>
               <button
                 className="btn small ghost"
@@ -697,7 +699,7 @@ let depthNote = '';
                 }}
                 title="Скрывает иностранные слова: сначала вспомни сам, затем открой!"
               >
-                🧠 {clozeMode ? 'Самопроверка: ВКЛ' : 'Самопроверка'}
+                <Icon name="brain" className="sm" /> {clozeMode ? 'Самопроверка: ВКЛ' : 'Самопроверка'}
               </button>
               {clozeMode && (
                 <button
@@ -824,7 +826,7 @@ let depthNote = '';
                     setTasksStarted(true);
                   }}
                 >
-                  🎯 К заданиям урока
+                  <Icon name="target" /> К заданиям урока
                 </button>
                 <span style={{ color: 'var(--ink2)', fontSize: '14px' }}>
                   {/* Was "+5% per lesson", which described the engine that raced
@@ -838,7 +840,7 @@ let depthNote = '';
             ) : (
               <>
                 <button className="btn coral big" onClick={handleFinishLesson}>
-                  Завершить чтение и получить награду 🎉
+                  <Icon name="trophy" /> Завершить чтение и получить награду
                 </button>
                 <span style={{ color: 'var(--ink2)', fontSize: '14px' }}>
                   Текст прочитан — закрепи результат!
@@ -1012,7 +1014,7 @@ let depthNote = '';
               }
               onClick={handleFinishLesson}
             >
-              Завершить урок и получить награду 🎉
+              <Icon name="trophy" /> Завершить урок и получить награду
             </button>
           </div>
         </div>
@@ -1022,7 +1024,15 @@ let depthNote = '';
       {lessonCompleted && completedResult && (
         <div className="card" style={{ marginTop: '24px', textAlign: 'center', padding: '32px 24px' }}>
           <h2 style={{ fontFamily: 'Unbounded', fontSize: '26px', marginBottom: '8px' }}>
-            {completedResult.pct >= PASS_PERCENT ? 'Урок засчитан! 🎉' : 'Попробуй ещё раз 💪'}
+            {completedResult.pct >= PASS_PERCENT ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                Урок засчитан! <Icon name="trophy" size={26} />
+              </span>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                Попробуй ещё раз <Icon name="repeat" size={22} />
+              </span>
+            )}
           </h2>
 
           <div style={{ fontSize: '42px', fontWeight: 800, color: 'var(--pine)', margin: '14px 0' }}>

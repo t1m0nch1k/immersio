@@ -456,7 +456,7 @@ export class StorageService {
       if (!state.achievements.includes(ach.id) && ach.condition(state)) {
         state.achievements.push(ach.id);
         newlyUnlocked.push(ach.name);
-        showToast(`🏅 Достижение: ${ach.name}!`);
+        showToast(`Достижение: ${ach.name}!`);
         audioService.playFanfare();
       }
     });

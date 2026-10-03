@@ -5,6 +5,7 @@ import { StorageService } from '../services/storageService';
 import { toastService } from '../services/toastService';
 import { audioService } from '../services/audioService';
 import { Route } from '../routes';
+import { Icon } from './icons';
 
 interface CustomTextImportProps {
   userState: UserState;
@@ -176,8 +177,8 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
             fontSize: '13px'
           }}>
             <span>Всего слов: <b>{previewStats.totalWords}</b></span>
-            <span style={{ color: 'var(--sea)' }}>
-              🌊 Будет адаптировано: <b>{previewStats.recognizedWords}</b> слов ({previewStats.pct}%)
+            <span style={{ color: 'var(--sea)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Icon name="waves" className="sm" /> Будет адаптировано: <b>{previewStats.recognizedWords}</b> слов ({previewStats.pct}%)
             </span>
           </div>
         )}
@@ -193,7 +194,7 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
             disabled={!title.trim() || !rawText.trim()}
             onClick={handleProcessAndSave}
           >
-            ✨ Создать урок и погрузиться →
+            <Icon name="sparkles" /> Создать урок и погрузиться →
           </button>
         </div>
       </div>

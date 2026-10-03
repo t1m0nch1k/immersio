@@ -4,7 +4,7 @@ import { LANGUAGES } from '../data/languages';
 import { CATEGORIES } from '../data/categories';
 import { audioService } from '../services/audioService';
 import { evaluatePronunciation, isSpeechRecognitionSupported, startSpeechRecognition } from '../services/speechService';
-import { Icon } from './icons';
+import { Icon, IconName } from './icons';
 
 interface WordCardModalProps {
   word: Word;
@@ -63,7 +63,7 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
 
   const langObj = LANGUAGES[currentLang] || LANGUAGES.en;
   const targetWord = word[currentLang] || word.en;
-  const catObj = CATEGORIES[word.cat] || { emoji: '📌', title: word.cat };
+  const catObj = CATEGORIES[word.cat] || { emoji: '📌', icon: 'pin', title: word.cat };
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -204,12 +204,11 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
               style={{
                 width: '32px',
                 height: '32px',
-                fontSize: '15px',
                 background: isListening ? 'rgba(235, 87, 87, 0.15)' : undefined,
                 color: isListening ? 'var(--coral)' : undefined
               }}
             >
-              🎙️
+              <Icon name="microphone" className="sm" />
             </button>
           )}
         </div>
@@ -233,7 +232,10 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <span>{speechResult.score >= 70 ? '✓' : '✗'} «{speechResult.recognized}»</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Icon name={speechResult.score >= 70 ? 'check' : 'x'} size={14} />
+            «{speechResult.recognized}»
+          </span>
           <b>{speechResult.score}%</b>
         </div>
       )}
@@ -242,7 +244,7 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
 
       <div style={{ margin: '8px 0' }}>
         <span className="chip dim">
-          {catObj.emoji} {catObj.title}
+          <Icon name={(catObj.icon || 'pin') as IconName} className="sm" /> {catObj.title}
         </span>
       </div>
 
@@ -290,7 +292,7 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
                 onClose();
               }}
             >
-              Ок ✓
+              <Icon name="check" className="sm" /> Готово
             </button>
           </>
         ) : (

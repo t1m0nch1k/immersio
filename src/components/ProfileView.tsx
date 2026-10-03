@@ -12,7 +12,7 @@ import { toastService } from '../services/toastService';
 import { getAppVersionInfo, UpdateService } from '../services/updateService';
 import { hapticService } from '../services/hapticService';
 import { reminderService } from '../services/reminderService';
-import { Icon } from './icons';
+import { Icon, IconName } from './icons';
 import { SyncPanel } from './SyncPanel';
 
 interface ProfileViewProps {
@@ -90,7 +90,7 @@ const ProfileHeader = React.memo<{
               value={userState.name}
               onChange={onNameChange}
             />
-            ✏️
+            <Icon name="pencil" className="sm" />
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
@@ -107,8 +107,12 @@ const ProfileHeader = React.memo<{
           <div className="rankbar">
             <i style={{ width: `${xpPct}%` }}></i>
           </div>
-          <div style={{ fontSize: '12.5px', color: 'var(--ink2)', marginTop: '4px' }}>
-            {nextRank ? `${userState.xp} / ${nextXp} XP до ранга «${nextRank}»` : 'Максимальный ранг достигнут! 🎉'}
+          <div style={{ fontSize: '12.5px', color: 'var(--ink2)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {nextRank ? (
+              `${userState.xp} / ${nextXp} XP до ранга «${nextRank}»`
+            ) : (
+              <>Максимальный ранг достигнут! <Icon name="trophy" className="sm" /></>
+            )}
           </div>
         </div>
       </div>
@@ -238,7 +242,9 @@ const AchievementsGrid = React.memo<{ userState: UserState }>(({ userState }) =>
       <div className="agrid">
         {ACHIEVEMENTS.map((ach) => (
           <div key={ach.id} className={`ach ${unlockedSet.has(ach.id) ? '' : 'lock'}`}>
-            <span className="ico">{ach.ico}</span>
+            <span className="ico">
+              {ach.iconName ? <Icon name={ach.iconName as IconName} size={24} /> : ach.ico}
+            </span>
             <b>{ach.name}</b>
             <span>{ach.desc}</span>
           </div>
@@ -424,7 +430,7 @@ const SettingsPanel = React.memo<{
             onClick={onTestReminder}
             title="Отправить тестовое уведомление"
           >
-            🔔 Тест
+            <Icon name="bell" className="sm" /> Тест
           </button>
         </div>
       </div>
@@ -432,7 +438,7 @@ const SettingsPanel = React.memo<{
 
     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px' }}>
       <button className="btn small" type="button" onClick={onRetakeTest}>
-        🧪 Пройти тест уровня заново
+        <Icon name="flask" className="sm" /> Пройти тест уровня заново
       </button>
       <button className="btn small danger" type="button" onClick={onResetProgress}>
         Сбросить весь прогресс
@@ -450,7 +456,7 @@ const AppUpdateCard = React.memo<{ onCheckUpdates?: () => void }>(({ onCheckUpda
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <div style={{ fontFamily: 'Unbounded', fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>🔄</span> Обновление приложения
+            <Icon name="refresh" size={18} /> Обновление приложения
           </div>
           <div style={{ fontSize: '13px', marginTop: '6px', color: 'var(--text-muted, #666)' }}>
             <div>Версия приложения: <b>v{versionInfo.appVersion}</b> (сборка {versionInfo.appBuild})</div>
@@ -471,7 +477,7 @@ const AppUpdateCard = React.memo<{ onCheckUpdates?: () => void }>(({ onCheckUpda
             onClick={() => onCheckUpdates?.()}
             style={{ fontWeight: 600 }}
           >
-            🔍 Проверить обновления
+            <Icon name="search" className="sm" /> Проверить обновления
           </button>
           {versionInfo.hasLiveBundle && (
             <button
@@ -622,8 +628,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <div className="card" style={{ marginTop: '16px', background: 'linear-gradient(135deg, rgba(14, 138, 109, 0.12), rgba(124, 199, 232, 0.18))' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <div style={{ fontFamily: 'Unbounded', fontSize: '18px', fontWeight: 800 }}>
-              🌊 Полный доступ открыт
+            <div style={{ fontFamily: 'Unbounded', fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Icon name="waves" size={22} /> Полный доступ открыт
             </div>
             <p className="sub" style={{ fontSize: '13.5px', marginTop: '4px' }}>
               Все уровни, уроки, словарь и тренажёр доступны бесплатно. Платные ограничения временно отключены.

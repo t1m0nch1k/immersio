@@ -388,9 +388,10 @@ header {
   vertical-align: -3px;
 }
 
-.chip .ic {
-  width: 13px;
-  height: 13px;
+.chip .ic,
+.catchip .ic {
+  width: 14px;
+  height: 14px;
   vertical-align: -2px;
 }
 
@@ -2075,9 +2076,21 @@ header .iconbtn .ic {
 }
 
 .ach .ico {
-  font-size: 32px;
-  display: block;
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 10px;
+  border-radius: 12px;
+  background: var(--paper-warm);
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
+}
+
+.ach:not(.lock) .ico {
+  background: var(--sun);
+  box-shadow: 0 2px 0 var(--ink);
 }
 
 .ach b {
@@ -3454,8 +3467,10 @@ header .iconbtn .ic {
 }
 
 .streak-day-flame {
-  font-size: 14px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
 }
 
 .streak-day-item.is-today:not(.is-done) .streak-day-indicator {

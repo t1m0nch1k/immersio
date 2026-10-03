@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { ALPHABETS } from '../data/alphabet';
@@ -39,8 +39,12 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
       <p className="sub">{alphabet.note}</p>
 
       <div className="guide-actions">
-        <button className="btn sun" onClick={() => onNavigate('grammar')}>🧠 Грамматика</button>
-        <button className="btn" onClick={() => onNavigate('dict-all')}>📚 Открыть словарь всех слов</button>
+        <button className="btn sun" onClick={() => onNavigate('grammar')}>
+          <Icon name="brain" /> Грамматика
+        </button>
+        <button className="btn" onClick={() => onNavigate('dict-all')}>
+          <Icon name="book-open" /> Открыть словарь всех слов
+        </button>
       </div>
 
       <section className="card alphabet-keyboard-card">
@@ -104,7 +108,7 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
       ))}
 
       <div className="card alphabet-footer">
-        <span>💡</span>
+        <span className="alphabet-tip-icon"><Icon name="lightbulb" size={24} /></span>
         <p>Нажимай на любую букву, чтобы услышать её через Edge-TTS, а затем переходи к словам для закрепления.</p>
         <button className="btn small pine" onClick={() => onNavigate('dict-all')}>Слова по этой теме →</button>
       </div>

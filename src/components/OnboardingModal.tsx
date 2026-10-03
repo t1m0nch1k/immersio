@@ -175,8 +175,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </div>
               ПОГРУЖЕНИЕ
             </div>
-            <h2 id="onboarding-dialog-title" style={{ fontFamily: 'Unbounded', fontSize: '24px', marginBottom: '10px' }}>
-              Ныряем в новый язык 🌊
+            <h2 id="onboarding-dialog-title" style={{ fontFamily: 'Unbounded', fontSize: '24px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Ныряем в новый язык <Icon name="waves" size={24} />
             </h2>
             <p className="sub">
               Ты будешь читать интерактивные тексты, где слова изучаемого языка постепенно вытесняют родную речь. Выученные слова навсегда остаются в оригинале!
@@ -215,8 +215,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         {/* Step 2: Placement test */}
         {step === 2 && testQuestions.length > 0 && (
           <div>
-            <h2 style={{ fontFamily: 'Unbounded', fontSize: '22px', marginBottom: '8px' }}>
-              Проверка уровня 🧪
+            <h2 style={{ fontFamily: 'Unbounded', fontSize: '22px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Проверка уровня <Icon name="flask" size={22} />
             </h2>
             <p className="sub">
               {testQuestions.length} вопросов: по 5 слов на каждый уровень. Угаданные слова сразу попадут в твой словарь!
@@ -319,8 +319,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         {/* Step 4: Avatar & Name */}
         {step === 4 && (
           <div>
-            <h2 style={{ fontFamily: 'Unbounded', fontSize: '24px', marginBottom: '8px' }}>
-              Почти готово! 🎒
+            <h2 style={{ fontFamily: 'Unbounded', fontSize: '24px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Почти готово! <Icon name="backpack" size={24} />
             </h2>
             <p className="sub">Как тебя зовут и кто будет твоим напарником в путешествии?</p>
 
@@ -350,7 +350,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               style={{ width: '100%', marginTop: '16px' }}
               onClick={handleFinishOnboarding}
             >
-              Начать погружение 🌊
+              <Icon name="waves" /> Начать погружение
             </button>
           </div>
         )}

@@ -205,9 +205,9 @@ export const Header: React.FC<HeaderProps> = ({
           }}
           title="Доступно обновление приложения!"
           aria-label="Доступно обновление"
-          style={{ position: 'relative', fontSize: '1.1rem' }}
+          style={{ position: 'relative' }}
         >
-          🚀
+          <Icon name="rocket" />
           <span
             style={{
               position: 'absolute',

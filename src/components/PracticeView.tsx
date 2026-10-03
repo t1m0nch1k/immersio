@@ -286,8 +286,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
           {!activeGame && (
             <div className="gamehub-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '20px' }}>
               <div className="card" style={{ animationDelay: '0.04s' }}>
-                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px' }}>
-                  🧠 SRS Карточки
+                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon name="brain" size={22} /> SRS Карточки
                 </h3>
                 <p className="sub" style={{ marginBottom: '16px' }}>
                   Умная система повторения SuperMemo SM-2. Переворачивай карточки и оценивай запоминание.
@@ -298,8 +298,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               </div>
 
               <div className="card" style={{ animationDelay: '0.08s' }}>
-                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px' }}>
-                  🎯 Перевод (8 слов)
+                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon name="target" size={22} /> Перевод (8 слов)
                 </h3>
                 <p className="sub" style={{ marginBottom: '16px' }}>
                   Быстрый тест на выбор верного перевода слова.
@@ -310,8 +310,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               </div>
 
               <div className="card" style={{ animationDelay: '0.12s' }}>
-                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px' }}>
-                  🧩 Спринт-пары
+                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon name="puzzle" size={22} /> Спринт-пары
                 </h3>
                 <p className="sub" style={{ marginBottom: '16px' }}>
                   6 пар — максимально быстро соедини иностранные слова с их переводом.
@@ -322,8 +322,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               </div>
 
               <div className="card" style={{ animationDelay: '0.16s' }}>
-                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px' }}>
-                  🎧 На слух (Аудио)
+                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon name="headphones" size={22} /> На слух (Аудио)
                 </h3>
                 <p className="sub" style={{ marginBottom: '16px' }}>
                   Слушай произношение слова native-диктором и определяй перевод.
@@ -334,8 +334,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               </div>
 
               <div className="card sprint-teaser" style={{ animationDelay: '0.2s' }}>
-                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px' }}>
-                  ⚡ Спринт слов
+                <h3 style={{ fontFamily: 'Unbounded', fontSize: '18px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon name="bolt" size={22} /> Спринт слов
                 </h3>
                 <p className="sub" style={{ marginBottom: '16px' }}>
                   10 слов из всей базы за 60 секунд. Правильные ответы сразу закрепляются в словаре.
@@ -352,9 +352,13 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
             <div className="card" style={{ marginTop: '20px', textAlign: 'center', minHeight: '320px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ fontSize: '12px', color: 'var(--ink2)', fontFamily: 'JetBrains Mono' }}>
-                  {srsIndex >= srsInitialTotal
-                    ? `🔄 Закрепление ошибки ${srsIndex - srsInitialTotal + 1} из ${srsQueue.length - srsInitialTotal}`
-                    : `Карточка ${srsIndex + 1} из ${srsInitialTotal}`}
+                  {srsIndex >= srsInitialTotal ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Icon name="repeat" className="sm" /> Закрепление ошибки {srsIndex - srsInitialTotal + 1} из {srsQueue.length - srsInitialTotal}
+                    </span>
+                  ) : (
+                    `Карточка ${srsIndex + 1} из ${srsInitialTotal}`
+                  )}
                 </span>
                 {srsQueue.length > srsInitialTotal && srsIndex < srsInitialTotal && (
                   <span className="chip coral sm" style={{ fontSize: '11px', padding: '2px 6px' }}>
@@ -388,7 +392,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                         </div>
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '24px' }}>
                           <button className="btn coral" onClick={() => handleSRSReview(1)}>
-                            Забыл (1) ↺
+                            <Icon name="repeat" className="sm" /> Забыл (1)
                           </button>
                           <button className="btn sun" onClick={() => handleSRSReview(3)}>
                             Вспомнил (3)
@@ -421,9 +425,13 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
             <div className="card" style={{ marginTop: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ fontSize: '13px', color: 'var(--ink2)', fontFamily: 'JetBrains Mono' }}>
-                  {quizIndex >= quizInitialTotal
-                    ? `🔄 Закрепление ошибки ${quizIndex - quizInitialTotal + 1} из ${quizPool.length - quizInitialTotal}`
-                    : `Вопрос ${quizIndex + 1} из ${quizInitialTotal}`}
+                  {quizIndex >= quizInitialTotal ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Icon name="repeat" className="sm" /> Закрепление ошибки {quizIndex - quizInitialTotal + 1} из {quizPool.length - quizInitialTotal}
+                    </span>
+                  ) : (
+                    `Вопрос ${quizIndex + 1} из ${quizInitialTotal}`
+                  )}
                 </span>
                 {quizPool.length > quizInitialTotal && quizIndex < quizInitialTotal && (
                   <span className="chip coral sm" style={{ fontSize: '11px', padding: '2px 6px' }}>
@@ -535,9 +543,13 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
             <div className="card" style={{ marginTop: '20px', textAlign: 'center' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                 <span style={{ fontSize: '13px', color: 'var(--ink2)', fontFamily: 'JetBrains Mono' }}>
-                  {quizIndex >= quizInitialTotal
-                    ? `🔄 Повтор ошибки ${quizIndex - quizInitialTotal + 1} из ${quizPool.length - quizInitialTotal}`
-                    : `Слушай и выбирай · ${quizIndex + 1} из ${quizInitialTotal}`}
+                  {quizIndex >= quizInitialTotal ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Icon name="repeat" className="sm" /> Повтор ошибки {quizIndex - quizInitialTotal + 1} из {quizPool.length - quizInitialTotal}
+                    </span>
+                  ) : (
+                    `Слушай и выбирай · ${quizIndex + 1} из ${quizInitialTotal}`
+                  )}
                 </span>
                 {quizPool.length > quizInitialTotal && quizIndex < quizInitialTotal && (
                   <span className="chip coral sm" style={{ fontSize: '11px', padding: '2px 6px' }}>
@@ -586,16 +598,16 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
           {/* Finished Round Result */}
           {gameFinished && (
             <div className="card" style={{ marginTop: '20px', textAlign: 'center', padding: '36px 24px' }}>
-              <h2 style={{ fontFamily: 'Unbounded', fontSize: '24px', marginBottom: '12px' }}>
-                Раунд завершен! 🎉
+              <h2 style={{ fontFamily: 'Unbounded', fontSize: '24px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                Раунд завершен! <Icon name="trophy" size={26} />
               </h2>
               <p className="sub" style={{ margin: '10px auto' }}>
                 Отличная тренировка! Твои знания зафиксированы.
               </p>
               {((activeGame === 'srs' && srsQueue.length > srsInitialTotal) ||
                 ((activeGame === 'mcq' || activeGame === 'audio') && quizPool.length > quizInitialTotal)) && (
-                <div style={{ margin: '12px auto', maxWidth: '420px', padding: '10px 14px', background: 'rgba(14, 138, 109, 0.12)', borderRadius: '10px', fontSize: '14px', color: 'var(--sea)' }}>
-                  ✨ Все допущенные ошибки отработаны повторно и успешно закреплены!
+                <div style={{ margin: '12px auto', maxWidth: '420px', padding: '10px 14px', background: 'rgba(14, 138, 109, 0.12)', borderRadius: '10px', fontSize: '14px', color: 'var(--sea)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <Icon name="sparkles" size={16} /> Все допущенные ошибки отработаны повторно и успешно закреплены!
                 </div>
               )}
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '20px' }}>

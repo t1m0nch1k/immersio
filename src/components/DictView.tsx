@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { UserState, WordCategory } from '../types';
 import { WORD_MAP, WORDS } from '../data/words';
 import { CATEGORIES } from '../data/categories';
@@ -6,7 +6,7 @@ import { LANGUAGES } from '../data/languages';
 import { StorageService } from '../services/storageService';
 import { audioService } from '../services/audioService';
 import { Route } from '../routes';
-import { Icon } from './icons';
+import { Icon, IconName } from './icons';
 
 interface DictViewProps {
   userState: UserState;
@@ -141,7 +141,7 @@ export const DictView: React.FC<DictViewProps> = ({
               className={`catchip ${selectedCat === catKey ? 'on' : ''}`}
               onClick={() => setSelectedCat(catKey)}
             >
-              {cat.emoji} {cat.title}
+              <Icon name={(cat.icon || 'pin') as IconName} className="sm" /> {cat.title}
             </button>
           );
         })}
@@ -154,7 +154,7 @@ export const DictView: React.FC<DictViewProps> = ({
             const word = WORD_MAP[id];
             if (!word) return null;
             const targetTxt = word[currentLang] || word.en;
-            const catObj = CATEGORIES[word.cat] || { emoji: '📌', title: word.cat };
+            const catObj = CATEGORIES[word.cat] || { emoji: '📌', icon: 'pin', title: word.cat };
             const isLearned = langProg.learnedWords.includes(id);
 
             return (
@@ -163,7 +163,7 @@ export const DictView: React.FC<DictViewProps> = ({
                 <span className="ru">{word.ru}</span>
 
                 <span className="chip dim" style={{ marginRight: 'auto' }}>
-                  {catObj.emoji} {catObj.title}
+                  <Icon name={(catObj.icon || 'pin') as IconName} className="sm" /> {catObj.title}
                 </span>
 
                 <button

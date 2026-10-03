@@ -152,10 +152,10 @@ export const StreakFlameWidget: React.FC<StreakFlameWidgetProps> = ({
 
           <p className="streak-desc">
             {isDoneToday
-              ? '🔥 Огонёк сохранён на сегодня! Твоя ударная серия продолжается.'
+              ? 'Огонёк сохранён на сегодня! Твоя ударная серия продолжается.'
               : streakCount > 0
-              ? `⚠️ Пройди урок сегодня, чтобы не потерять серию в ${streakCount} дн.!`
-              : '⚡ Зажги свой первый огонёк — пройди любой урок или тренировку!'}
+              ? `Пройди урок сегодня, чтобы не потерять серию в ${streakCount} дн.!`
+              : 'Зажги свой первый огонёк — пройди любой урок или тренировку!'}
           </p>
         </div>
 
@@ -192,7 +192,9 @@ export const StreakFlameWidget: React.FC<StreakFlameWidgetProps> = ({
             <span className="streak-day-label">{day.label}</span>
             <div className="streak-day-indicator">
               {day.isDone ? (
-                <span className="streak-day-flame" aria-hidden="true">🔥</span>
+                <span className="streak-day-flame" aria-hidden="true">
+                  <Icon name="flame" size={14} />
+                </span>
               ) : day.isToday ? (
                 <span className="streak-day-pulse" aria-hidden="true" />
               ) : (

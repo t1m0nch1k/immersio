@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LanguageCode, UserState } from '../types';
 import { WORDS } from '../data/words';
 import { LANGUAGES } from '../data/languages';
@@ -163,7 +163,11 @@ export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpd
     return (
       <div className="view">
         <button className="backlink" onClick={() => onNavigate('practice')}>← Назад в практику</button>
-        <div className="card emptybox"><span className="big">📚</span><h3>Словарь пока пуст</h3><p>Открой урок, чтобы добавить первые слова в спринт.</p></div>
+        <div className="card emptybox">
+          <span className="big"><Icon name="book-open" size={40} /></span>
+          <h3>Словарь пока пуст</h3>
+          <p>Открой урок, чтобы добавить первые слова в спринт.</p>
+        </div>
       </div>
     );
   }
@@ -171,13 +175,17 @@ export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpd
   return (
     <div className="view sprint-view">
       <button className="backlink" onClick={() => onNavigate('practice')}>← Назад в практику</button>
-      <div className="overline">⚡ новый режим · {language.name}</div>
+      <div className="overline" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <Icon name="bolt" className="sm" /> новый режим · {language.name}
+      </div>
       <h1 className="display">Спринт слов</h1>
       <p className="sub">10 слов за 60 секунд: выбирай перевод, слушай произношение и сразу закрепляй правильные ответы.</p>
 
       {finished ? (
         <div className="card sprint-result">
-          <span className="sprint-result-icon">🏁</span>
+          <span className="sprint-result-icon">
+            <Icon name="flag" size={32} />
+          </span>
           <div className="overline">раунд завершён</div>
           <h2>{score} из {queue.length}</h2>
           <p className="sub">Правильные ответы добавлены в словарь. XP начислен за скорость и точность.</p>

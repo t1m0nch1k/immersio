@@ -37,7 +37,7 @@ class ReminderService {
     if (window.AndroidHost?.sendTestReminder) {
       try {
         window.AndroidHost.sendTestReminder();
-        toastService.show('🔔 Тестовое напоминание отправлено!');
+        toastService.show('Тестовое напоминание отправлено!');
         return true;
       } catch {
         // Fall through
@@ -48,11 +48,11 @@ class ReminderService {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
         try {
-          new Notification('🔥 Время для Погружения!', {
+          new Notification('Время для Погружения!', {
             body: 'Сохрани свою ударную серию — пройди короткий урок прямо сейчас!',
             icon: '/favicon.ico',
           });
-          toastService.show('🔔 Тестовое уведомление показано!');
+          toastService.show('Тестовое уведомление показано!');
           return true;
         } catch {
           // Fall through
@@ -60,11 +60,11 @@ class ReminderService {
       } else if (Notification.permission !== 'denied') {
         const perm = await Notification.requestPermission();
         if (perm === 'granted') {
-          new Notification('🔥 Время для Погружения!', {
+          new Notification('Время для Погружения!', {
             body: 'Сохрани свою ударную серию — пройди короткий урок прямо сейчас!',
             icon: '/favicon.ico',
           });
-          toastService.show('🔔 Тестовое уведомление показано!');
+          toastService.show('Тестовое уведомление показано!');
           return true;
         }
       }

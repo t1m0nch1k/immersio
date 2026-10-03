@@ -172,7 +172,7 @@ export const LessonList: React.FC<LessonListProps> = ({
             className={`catchip ${levelFilter === 'custom' ? 'on' : ''}`}
             onClick={() => setLevelFilter('custom')}
           >
-            ✨ Свои тексты ({userState.customLessons.length})
+            <Icon name="sparkles" className="sm" /> Свои тексты ({userState.customLessons.length})
           </button>
         )}
 
@@ -181,7 +181,7 @@ export const LessonList: React.FC<LessonListProps> = ({
           style={{ marginLeft: 'auto' }}
           onClick={onNavigateCustom}
         >
-          + Импорт своего текста
+          <Icon name="plus" className="sm" /> Импорт своего текста
         </button>
       </div>
 

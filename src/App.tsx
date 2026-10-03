@@ -429,7 +429,7 @@ export const App: React.FC = () => {
     setActiveLessonId(customLesson.id);
     setCurrentRoute('reader');
     setUserState({ ...userState });
-    showToast(`Свой урок «${customLesson.title}» создан! 🎉`);
+    showToast(`Свой урок «${customLesson.title}» создан!`);
   }, [userState, showToast]);
 
   const handleResetProgress = useCallback(() => {

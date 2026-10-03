@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LanguageCode, ListeningItem, UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { audioService } from '../services/audioService';
@@ -142,7 +142,15 @@ export const ListeningView: React.FC<ListeningViewProps> = ({ userState, onUpdat
       <section className="card listening-hero" aria-labelledby="listening-progress-title">
         <div className="listening-hero-copy">
           <div className="overline">погружение через звук</div>
-          <h2 id="listening-progress-title">{progress.completed ? 'Сегодня уже достаточно 🎧' : '15 минут живого языка'}</h2>
+          <h2 id="listening-progress-title">
+            {progress.completed ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                Сегодня уже достаточно <Icon name="headphones" size={20} />
+              </span>
+            ) : (
+              '15 минут живого языка'
+            )}
+          </h2>
           <p>
             Послушай сначала без текста, затем включи транскрипцию и повтори 2–3 фразы вслух. Не нужно понимать каждое слово.
           </p>

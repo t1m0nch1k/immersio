@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { LanguageCode, StudyTask, UserState } from '../types';
 import { buildStudyPlan } from '../services/studyPlanService';
 import { StorageService } from '../services/storageService';
@@ -81,7 +81,8 @@ export const DailyPlanCard: React.FC<DailyPlanCardProps> = ({
         <div>
           <div className="overline">план на сегодня · {plan.totalMinutes} минут</div>
           <h2 id="daily-plan-title">
-            {stepsLabel(plan.tasks.length)} {plan.completed ? '🎉' : '🧭'}
+            {stepsLabel(plan.tasks.length)}{' '}
+            <Icon name={plan.completed ? 'trophy' : 'compass'} size={18} className={plan.completed ? 'plan-done-icon' : ''} />
           </h2>
         </div>
         <div className="daily-plan-progress">
