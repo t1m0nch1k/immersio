@@ -66,8 +66,7 @@ const manifest = {
   bundleSizeBytes: bundleStats.size,
   apkUrl: targetApkUrl,
   apkSha256: apkSha256 || undefined,
-  minNativeBuild: 1,
-  changelog: '• Добавлена система онлайн-обновлений (OTA Web + APK)\n• Закрепление ошибок в словах\n• Режим самопроверки в чтении\n• Тренировка произношения со скорингом\n• Динамическая адаптация пользовательских текстов',
+  changelog: '🎉 Релиз v2.1.0 (OTA Live Update):\n• Доставка онлайн-обновлений без сторонних маркетов\n• Новый бейдж версии v2.1 в шапке\n• Закрепление ошибок и тренировка произношения',
   releasedAt: new Date().toISOString()
 };
 

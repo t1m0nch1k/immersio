@@ -30,6 +30,6 @@ android/app/src/main/assets/www/
 /redesign-example/
 /Qwen_html_*.html
 
-# Release binaries (uploaded to GitHub Releases)
+# Release binaries (APKs uploaded to GitHub Releases)
 updates/*.apk
-updates/*.zip
+!updates/bundle.zip
