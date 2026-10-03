@@ -41,7 +41,7 @@ interface ReaderViewProps {
    */
   onLearnWord?: (wordId: string) => void;
   onForgetWord?: (wordId: string) => void;
-  onOpenWordPopup: (word: Word, rect: DOMRect) => void;
+  onOpenWordPopup: (word: Word, rect: DOMRect, contextSentence?: string) => void;
   onUpdateState: (newState: UserState) => void;
 }
 
@@ -64,7 +64,8 @@ interface OriginalSentenceProps {
   onWordClick: (
     event: React.MouseEvent<HTMLButtonElement>,
     wordId: string | undefined,
-    text: string
+    text: string,
+    contextSentence?: string
   ) => void;
 }
 
@@ -82,6 +83,8 @@ const OriginalSentence = React.memo(function OriginalSentence({
   learnedSet,
   onWordClick,
 }: OriginalSentenceProps) {
+  const sentenceText = tokens.map((t) => t.text).join('');
+
   return (
     <div className="original-sentence-block">
       <p className="original-sentence-text">
@@ -102,7 +105,7 @@ const OriginalSentence = React.memo(function OriginalSentence({
             <button
               key={token.key}
               className={`tk ${isKnown ? 'known' : 'new'}`}
-              onClick={(e) => onWordClick(e, word?.id || effectiveWordId, token.text)}
+              onClick={(e) => onWordClick(e, word?.id || effectiveWordId, token.text, sentenceText)}
               title={word ? `Перевод: ${word.ru}` : 'Нажмите для перевода и озвучки'}
             >
               {token.text}
@@ -168,6 +171,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
   const [readMode, setReadMode] = useState<ReadMode>('immersion');
   const [showSentenceRu, setShowSentenceRu] = useState(true);
+  const [clozeMode, setClozeMode] = useState(false);
+  const [revealedClozeKeys, setRevealedClozeKeys] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    setRevealedClozeKeys(new Set());
+  }, [lesson.id, currentLang]);
 
   // Exercise & quiz states
   const [tasksStarted, setTasksStarted] = useState(false);
@@ -320,25 +329,32 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   };
 
   // Handle clicking word in text
-  const handleTokenClick = (e: React.MouseEvent<HTMLButtonElement>, wordId: string) => {
+  const handleTokenClick = (e: React.MouseEvent<HTMLButtonElement>, wordId: string, sIdx?: number) => {
     e.stopPropagation();
     const word = getWord(wordId);
     if (!word) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    onOpenWordPopup(word, rect);
+    let contextStr: string | undefined;
+    if (sIdx !== undefined && sentenceTokens[sIdx]) {
+      contextStr = sentenceTokens[sIdx]
+        .map((t) => (t.wordId && t.target && foreignTokenKeys.has(t.key) ? t.target : t.text))
+        .join('');
+    }
+    onOpenWordPopup(word, rect, contextStr);
   };
 
   const handleForeignWordClick = useCallback(
     (
       e: React.MouseEvent<HTMLButtonElement>,
       wordId: string | undefined,
-      text: string
+      text: string,
+      contextSentence?: string
     ) => {
       e.stopPropagation();
       const word = wordId ? getWord(wordId) : undefined;
       if (word) {
         const rect = e.currentTarget.getBoundingClientRect();
-        openWordPopupRef.current(word, rect);
+        openWordPopupRef.current(word, rect, contextSentence);
       } else {
         // Do not create a fake dictionary card with the foreign word as its
         // Russian translation. Unknown tokens can still be pronounced, but
@@ -661,13 +677,46 @@ let depthNote = '';
         </div>
 
         {readMode === 'immersion' && (
-          <div className="legend" style={{ marginTop: '14px' }}>
-            <span>
-              <i className="sw new"></i> новое слово — нажми, чтобы выучить (+2 XP)
-            </span>
-            <span>
-              <i className="sw known"></i> уже в твоём словаре
-            </span>
+          <div className="legend" style={{ marginTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+              <span>
+                <i className="sw new"></i> новое слово — нажми, чтобы выучить (+2 XP)
+              </span>
+              <span>
+                <i className="sw known"></i> уже в твоём словаре
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className={`catchip ${clozeMode ? 'pine' : ''}`}
+                onClick={() => {
+                  audioService.playClick();
+                  setClozeMode((prev) => !prev);
+                  setRevealedClozeKeys(new Set());
+                }}
+                title="Скрывает иностранные слова: сначала вспомни сам, затем открой!"
+              >
+                🧠 {clozeMode ? 'Самопроверка: ВКЛ' : 'Самопроверка'}
+              </button>
+              {clozeMode && (
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  style={{ padding: '2px 8px', fontSize: '12px' }}
+                  onClick={() => {
+                    audioService.playClick();
+                    if (revealedClozeKeys.size >= foreignTokenKeys.size) {
+                      setRevealedClozeKeys(new Set());
+                    } else {
+                      setRevealedClozeKeys(new Set(foreignTokenKeys));
+                    }
+                  }}
+                >
+                  {revealedClozeKeys.size >= foreignTokenKeys.size ? 'Скрыть все' : 'Открыть все'}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -698,11 +747,33 @@ let depthNote = '';
 
                   if (isForeign && word) {
                     const isKnown = learnedSet.has(word.id);
+                    const isClozeMasked = clozeMode && !revealedClozeKeys.has(token.key);
+
+                    if (isClozeMasked) {
+                      return (
+                        <button
+                          key={token.key}
+                          className="tk cloze-masked"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            audioService.playPop();
+                            setRevealedClozeKeys((prev) => new Set([...prev, token.key]));
+                            if (token.target) {
+                              audioService.speak(token.target, currentLang);
+                            }
+                          }}
+                          title={`Самопроверка: вспомни перевод для «${word.ru}»`}
+                        >
+                          <span style={{ opacity: 0.7, marginRight: '2px' }}>?</span> {word.ru}
+                        </button>
+                      );
+                    }
+
                     return (
                       <button
                         key={token.key}
-                        className={`tk ${isKnown ? 'known' : 'new'}`}
-                        onClick={(e) => handleTokenClick(e, word.id)}
+                        className={`tk ${isKnown ? 'known' : 'new'} ${clozeMode ? 'cloze-revealed' : ''}`}
+                        onClick={(e) => handleTokenClick(e, word.id, sIdx)}
                         title={`Перевод: ${word.ru}`}
                       >
                         {token.target}
@@ -719,16 +790,6 @@ let depthNote = '';
               </p>
             ))
           ) : null}
-
-          {readMode === 'original' && originalTokens && (
-            <OriginalSentences
-              tokensBySentence={originalTokens}
-              ruSentences={ruSentences}
-              showRu={showSentenceRu}
-              learnedSet={learnedSet}
-              onWordClick={handleForeignWordClick}
-            />
-          )}
 
           {readMode === 'original' && originalTokens && (
             <OriginalSentences

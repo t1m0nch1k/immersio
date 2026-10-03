@@ -1,13 +1,15 @@
-﻿import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LanguageCode, Word } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { CATEGORIES } from '../data/categories';
 import { audioService } from '../services/audioService';
+import { evaluatePronunciation, isSpeechRecognitionSupported, startSpeechRecognition } from '../services/speechService';
 import { Icon } from './icons';
 
 interface WordCardModalProps {
   word: Word;
   position: { left: number; top: number };
+  contextSentence?: string;
   isLearned: boolean;
   currentLang: LanguageCode;
   onLearn: (wordId: string) => void;
@@ -45,6 +47,7 @@ export const clampToViewport = (
 export const WordCardModal: React.FC<WordCardModalProps> = ({
   word,
   position,
+  contextSentence,
   isLearned,
   currentLang,
   onLearn,
@@ -54,6 +57,9 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const [placement, setPlacement] = useState({ left: position.left, top: position.top });
+  const [isListening, setIsListening] = useState(false);
+  const [speechResult, setSpeechResult] = useState<{ score: number; recognized: string } | null>(null);
+  const recognitionStopRef = useRef<(() => void) | null>(null);
 
   const langObj = LANGUAGES[currentLang] || LANGUAGES.en;
   const targetWord = word[currentLang] || word.en;
@@ -62,6 +68,10 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => () => {
+    recognitionStopRef.current?.();
+  }, []);
 
   /**
    * The card is `position: fixed` and is positioned from a rect measured in the
@@ -96,7 +106,7 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
       window.removeEventListener('scroll', place, true);
       observer?.disconnect();
     };
-  }, [position.left, position.top, word.id, isLearned, currentLang]);
+  }, [position.left, position.top, word.id, isLearned, currentLang, contextSentence, speechResult, isListening]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -121,6 +131,38 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
     audioService.speak(targetWord, currentLang);
   };
 
+  const handleStartSpeaking = () => {
+    if (isListening) {
+      recognitionStopRef.current?.();
+      setIsListening(false);
+      return;
+    }
+    setSpeechResult(null);
+    setIsListening(true);
+    const stop = startSpeechRecognition({
+      lang: currentLang,
+      onResult: (text, isFinal) => {
+        if (isFinal) {
+          const evalRes = evaluatePronunciation(text, targetWord, currentLang);
+          setSpeechResult({ score: evalRes.score, recognized: text });
+          setIsListening(false);
+          if (evalRes.score >= 70) {
+            audioService.playSuccess();
+          } else {
+            audioService.playError();
+          }
+        }
+      },
+      onError: () => {
+        setIsListening(false);
+      },
+      onEnd: () => {
+        setIsListening(false);
+      }
+    });
+    recognitionStopRef.current = stop;
+  };
+
   return (
     <div
       ref={cardRef}
@@ -141,17 +183,60 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
 
       <div className="pfw">
         <span>{targetWord}</span>
-        <button
-          type="button"
-          className="iconbtn"
-          onClick={handleSpeak}
-          title="Озвучить"
-          aria-label={`Озвучить слово ${targetWord}`}
-          style={{ width: '32px', height: '32px' }}
-        >
-          <Icon name="volume" className="sm" />
-        </button>
+        <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="iconbtn"
+            onClick={handleSpeak}
+            title="Озвучить"
+            aria-label={`Озвучить слово ${targetWord}`}
+            style={{ width: '32px', height: '32px' }}
+          >
+            <Icon name="volume" className="sm" />
+          </button>
+          {isSpeechRecognitionSupported() && (
+            <button
+              type="button"
+              className="iconbtn"
+              onClick={handleStartSpeaking}
+              title={isListening ? 'Слушаю…' : 'Произнеси слово вслух'}
+              aria-label={`Проверить произношение слова ${targetWord}`}
+              style={{
+                width: '32px',
+                height: '32px',
+                fontSize: '15px',
+                background: isListening ? 'rgba(235, 87, 87, 0.15)' : undefined,
+                color: isListening ? 'var(--coral)' : undefined
+              }}
+            >
+              🎙️
+            </button>
+          )}
+        </div>
       </div>
+
+      {isListening && (
+        <div style={{ fontSize: '11px', color: 'var(--coral)', margin: '2px 0 6px' }}>
+          ● Говори слово в микрофон…
+        </div>
+      )}
+
+      {speechResult && (
+        <div style={{
+          fontSize: '11.5px',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          margin: '4px 0 8px',
+          background: speechResult.score >= 70 ? 'rgba(14, 138, 109, 0.15)' : 'rgba(235, 87, 87, 0.15)',
+          color: speechResult.score >= 70 ? 'var(--sea)' : 'var(--coral)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span>{speechResult.score >= 70 ? '✓' : '✗'} «{speechResult.recognized}»</span>
+          <b>{speechResult.score}%</b>
+        </div>
+      )}
 
       <div className="pru">{word.ru}</div>
 
@@ -161,7 +246,24 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
         </span>
       </div>
 
-      {word.exampleRu && (
+      {contextSentence && (
+        <div style={{
+          background: 'var(--paper2)',
+          borderRadius: '8px',
+          padding: '7px 9px',
+          margin: '6px 0 8px',
+          fontSize: '12px',
+          lineHeight: '1.4',
+          borderLeft: '3px solid var(--sun)'
+        }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--ink2)', marginBottom: '2px' }}>
+            В контексте урока
+          </div>
+          <div>«{contextSentence}»</div>
+        </div>
+      )}
+
+      {word.exampleRu && !contextSentence && (
         <div style={{ fontSize: '12.5px', color: 'var(--ink2)', margin: '8px 0', fontStyle: 'italic' }}>
           «{word.exampleRu}»
         </div>

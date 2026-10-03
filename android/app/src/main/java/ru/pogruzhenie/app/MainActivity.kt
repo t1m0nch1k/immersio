@@ -1,4 +1,4 @@
-﻿package ru.pogruzhenie.app
+package ru.pogruzhenie.app
 
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
@@ -16,6 +16,7 @@ import android.view.ViewGroup
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.JsResult
+import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -47,6 +48,8 @@ class MainActivity : ComponentActivity() {
     private var tts: TextToSpeech? = null
     private var isDarkTheme = false
     private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingPermissionRequest: PermissionRequest? = null
+    private val AUDIO_PERMISSION_REQUEST = 2002
     private var pendingAuthResult: String? = null
     private var pendingAuthDelivered = false
 
@@ -231,6 +234,20 @@ class MainActivity : ComponentActivity() {
                 if (newProgress >= 100) {
                     hideError()
                     flushPendingAuthResult()
+                }
+            }
+
+            override fun onPermissionRequest(request: PermissionRequest) {
+                val audioResources = request.resources.filter { it == PermissionRequest.RESOURCE_AUDIO_CAPTURE }
+                if (audioResources.isNotEmpty()) {
+                    if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        pendingPermissionRequest = request
+                        requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), AUDIO_PERMISSION_REQUEST)
+                    } else {
+                        request.grant(audioResources.toTypedArray())
+                    }
+                } else {
+                    request.deny()
                 }
             }
 
@@ -452,6 +469,19 @@ class MainActivity : ComponentActivity() {
                 null
             }
         )
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == AUDIO_PERMISSION_REQUEST) {
+            val pending = pendingPermissionRequest ?: return
+            pendingPermissionRequest = null
+            if (grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                pending.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+            } else {
+                pending.deny()
+            }
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

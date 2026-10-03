@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { UserState } from '../types';
 import { StorageService } from '../services/storageService';
 import { toastService } from '../services/toastService';
@@ -32,15 +32,19 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
   // SRS state
   const [srsQueue, setSrsQueue] = useState<string[]>([]);
+  const [srsInitialTotal, setSrsInitialTotal] = useState(0);
   const [srsIndex, setSrsIndex] = useState(0);
   const [srsFlipped, setSrsFlipped] = useState(false);
 
   // General quiz state
   const [quizPool, setQuizPool] = useState<string[]>([]);
+  const [quizInitialTotal, setQuizInitialTotal] = useState(0);
   const [quizIndex, setQuizIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [gameFinished, setGameFinished] = useState(false);
   const [answeredQuizIndex, setAnsweredQuizIndex] = useState<number | null>(null);
+  const [quizFeedback, setQuizFeedback] = useState<{ chosen: string; correct: boolean } | null>(null);
+  const quizTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Pairs state
   const [pairsLeft, setPairsLeft] = useState<string[]>([]);
@@ -54,7 +58,12 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
   useEffect(() => {
     setAnsweredQuizIndex(null);
+    setQuizFeedback(null);
   }, [quizIndex, activeGame]);
+
+  useEffect(() => () => {
+    if (quizTimerRef.current) clearTimeout(quizTimerRef.current);
+  }, []);
 
   // The reader can contain grammar tokens and older progress can contain
   // temporary ids. Practice must only use complete dictionary records, or it
@@ -95,6 +104,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     const queue = dueIds.length > 0 ? shuffle(dueIds) : shuffle(usableLearnedWords).slice(0, 10);
     if (queue.length === 0) return;
     setSrsQueue(queue);
+    setSrsInitialTotal(queue.length);
     setSrsIndex(0);
     setSrsFlipped(false);
     setScore(0);
@@ -110,12 +120,20 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     const updatedItem = SRSService.calculateNextReview(currentItem, quality);
 
     currentProgress.srsData[wordId] = updatedItem;
-    const nextScore = score + (quality >= 3 ? 1 : 0);
+    const isSuccess = quality >= 3;
+    const nextScore = score + (isSuccess ? 1 : 0);
     setScore(nextScore);
 
     audioService.playSuccess();
 
-    if (srsIndex + 1 < srsQueue.length) {
+    // Error recovery loop: forgotten cards (quality < 3) are re-queued to the
+    // end of this session so the learner consolidates them before finishing.
+    const nextQueue = !isSuccess ? [...srsQueue, wordId] : srsQueue;
+    if (!isSuccess) {
+      setSrsQueue(nextQueue);
+    }
+
+    if (srsIndex + 1 < nextQueue.length) {
       setSrsIndex((prev) => prev + 1);
       setSrsFlipped(false);
     } else {
@@ -134,9 +152,11 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   const startMCQ = () => {
     const pool = shuffle(usableLearnedWords).slice(0, 8);
     setQuizPool(pool);
+    setQuizInitialTotal(pool.length);
     setQuizIndex(0);
     setScore(0);
     setAnsweredQuizIndex(null);
+    setQuizFeedback(null);
     setGameFinished(false);
     setActiveGame('mcq');
   };
@@ -157,9 +177,11 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   const startAudio = () => {
     const pool = shuffle(usableLearnedWords).slice(0, 6);
     setQuizPool(pool);
+    setQuizInitialTotal(pool.length);
     setQuizIndex(0);
     setScore(0);
     setAnsweredQuizIndex(null);
+    setQuizFeedback(null);
     setGameFinished(false);
     setActiveGame('audio');
   };
@@ -193,10 +215,12 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   const currentQuizWord = getWord(currentQuizWordId);
 
   const handleMCQAnswer = (chosenRu: string) => {
-    if (answeredQuizIndex === quizIndex) return;
+    if (answeredQuizIndex === quizIndex || quizFeedback) return;
     setAnsweredQuizIndex(quizIndex);
     const isCorrect = Boolean(currentQuizWord && getRussianText(currentQuizWord) === chosenRu);
     const nextScore = score + (isCorrect ? 1 : 0);
+    setQuizFeedback({ chosen: chosenRu, correct: isCorrect });
+
     if (isCorrect) {
       audioService.playSuccess();
       setScore(nextScore);
@@ -204,17 +228,27 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
       audioService.playError();
     }
 
-    if (quizIndex + 1 < quizPool.length) {
-      setQuizIndex((prev) => prev + 1);
-    } else {
-      // In-place mutation; the copy passed to `onUpdateState` publishes the XP.
-      const xpGain = 10 + nextScore * 2;
-      userState.xp += xpGain;
-      StorageService.save(userState);
-      onUpdateState({ ...userState });
-      confetti({ particleCount: 50 });
-      setGameFinished(true);
+    // Error recovery: wrong answers are appended to the quiz pool to be
+    // answered again before the session finishes.
+    const nextPool = !isCorrect ? [...quizPool, currentQuizWordId] : quizPool;
+    if (!isCorrect) {
+      setQuizPool(nextPool);
     }
+
+    quizTimerRef.current = setTimeout(() => {
+      setQuizFeedback(null);
+      if (quizIndex + 1 < nextPool.length) {
+        setQuizIndex((prev) => prev + 1);
+      } else {
+        // In-place mutation; the copy passed to `onUpdateState` publishes the XP.
+        const xpGain = 10 + nextScore * 2;
+        userState.xp += xpGain;
+        StorageService.save(userState);
+        onUpdateState({ ...userState });
+        confetti({ particleCount: 50 });
+        setGameFinished(true);
+      }
+    }, 650);
   };
 
   return (
@@ -316,8 +350,17 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
           {/* Active SRS Mode */}
           {activeGame === 'srs' && !gameFinished && (
             <div className="card" style={{ marginTop: '20px', textAlign: 'center', minHeight: '320px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ fontSize: '12px', color: 'var(--ink2)', marginBottom: '12px', fontFamily: 'JetBrains Mono' }}>
-                Карточка {srsIndex + 1} из {srsQueue.length}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--ink2)', fontFamily: 'JetBrains Mono' }}>
+                  {srsIndex >= srsInitialTotal
+                    ? `🔄 Закрепление ошибки ${srsIndex - srsInitialTotal + 1} из ${srsQueue.length - srsInitialTotal}`
+                    : `Карточка ${srsIndex + 1} из ${srsInitialTotal}`}
+                </span>
+                {srsQueue.length > srsInitialTotal && srsIndex < srsInitialTotal && (
+                  <span className="chip coral sm" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                    На повтор: {srsQueue.length - srsInitialTotal}
+                  </span>
+                )}
               </div>
 
               {(() => {
@@ -343,14 +386,9 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                         <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--sea)', margin: '14px 0' }}>
                           {getRussianText(word)}
                         </div>
-                        {/*
-                          No icon here on purpose. The three ratings differ
-                          only by colour, so a marker in the same hue adds
-                          nothing; the fill already is the signal.
-                        */}
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '24px' }}>
                           <button className="btn coral" onClick={() => handleSRSReview(1)}>
-                            Забыл (1)
+                            Забыл (1) ↺
                           </button>
                           <button className="btn sun" onClick={() => handleSRSReview(3)}>
                             Вспомнил (3)
@@ -381,8 +419,17 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
           {/* Active MCQ Mode */}
           {activeGame === 'mcq' && !gameFinished && currentQuizWord && (
             <div className="card" style={{ marginTop: '20px' }}>
-              <div style={{ fontSize: '13px', color: 'var(--ink2)', fontFamily: 'JetBrains Mono', marginBottom: '12px' }}>
-                Вопрос {quizIndex + 1} из {quizPool.length}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontSize: '13px', color: 'var(--ink2)', fontFamily: 'JetBrains Mono' }}>
+                  {quizIndex >= quizInitialTotal
+                    ? `🔄 Закрепление ошибки ${quizIndex - quizInitialTotal + 1} из ${quizPool.length - quizInitialTotal}`
+                    : `Вопрос ${quizIndex + 1} из ${quizInitialTotal}`}
+                </span>
+                {quizPool.length > quizInitialTotal && quizIndex < quizInitialTotal && (
+                  <span className="chip coral sm" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                    На повтор: {quizPool.length - quizInitialTotal}
+                  </span>
+                )}
               </div>
               <div className="qword">
                 {getTargetText(currentQuizWord, currentLang)}
@@ -397,11 +444,30 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               </div>
 
               <div className="opts" style={{ marginTop: '16px' }}>
-                {(quizOptionsMap[currentQuizWordId] || []).map((opt, idx) => (
-                  <button key={idx} className="opt" disabled={answeredQuizIndex === quizIndex} onClick={() => handleMCQAnswer(opt)}>
-                    {opt}
-                  </button>
-                ))}
+                {(quizOptionsMap[currentQuizWordId] || []).map((opt, idx) => {
+                  const isRight = Boolean(currentQuizWord && getRussianText(currentQuizWord) === opt);
+                  const isChosen = quizFeedback?.chosen === opt;
+                  let optStyle: React.CSSProperties | undefined;
+                  if (quizFeedback) {
+                    if (isRight) {
+                      optStyle = { background: 'var(--sea)', color: '#ffffff', borderColor: 'var(--sea)', fontWeight: 700 };
+                    } else if (isChosen && !quizFeedback.correct) {
+                      optStyle = { background: 'var(--coral)', color: '#ffffff', borderColor: 'var(--coral)', fontWeight: 700 };
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={idx}
+                      className="opt"
+                      style={optStyle}
+                      disabled={answeredQuizIndex === quizIndex || Boolean(quizFeedback)}
+                      onClick={() => handleMCQAnswer(opt)}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -467,8 +533,17 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
           {/* Active Audio Mode */}
           {activeGame === 'audio' && !gameFinished && currentQuizWord && (
             <div className="card" style={{ marginTop: '20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '13px', color: 'var(--ink2)', fontFamily: 'JetBrains Mono', marginBottom: '14px' }}>
-                Слушай и выбирай · {quizIndex + 1} из {quizPool.length}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <span style={{ fontSize: '13px', color: 'var(--ink2)', fontFamily: 'JetBrains Mono' }}>
+                  {quizIndex >= quizInitialTotal
+                    ? `🔄 Повтор ошибки ${quizIndex - quizInitialTotal + 1} из ${quizPool.length - quizInitialTotal}`
+                    : `Слушай и выбирай · ${quizIndex + 1} из ${quizInitialTotal}`}
+                </span>
+                {quizPool.length > quizInitialTotal && quizIndex < quizInitialTotal && (
+                  <span className="chip coral sm" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                    На повтор: {quizPool.length - quizInitialTotal}
+                  </span>
+                )}
               </div>
 
               <button
@@ -480,11 +555,30 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               </button>
 
               <div className="opts" style={{ marginTop: '20px' }}>
-                {(quizOptionsMap[currentQuizWordId] || []).map((opt, idx) => (
-                    <button key={idx} className="opt" disabled={answeredQuizIndex === quizIndex} onClick={() => handleMCQAnswer(opt)}>
-                    {opt}
-                  </button>
-                ))}
+                {(quizOptionsMap[currentQuizWordId] || []).map((opt, idx) => {
+                  const isRight = Boolean(currentQuizWord && getRussianText(currentQuizWord) === opt);
+                  const isChosen = quizFeedback?.chosen === opt;
+                  let optStyle: React.CSSProperties | undefined;
+                  if (quizFeedback) {
+                    if (isRight) {
+                      optStyle = { background: 'var(--sea)', color: '#ffffff', borderColor: 'var(--sea)', fontWeight: 700 };
+                    } else if (isChosen && !quizFeedback.correct) {
+                      optStyle = { background: 'var(--coral)', color: '#ffffff', borderColor: 'var(--coral)', fontWeight: 700 };
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={idx}
+                      className="opt"
+                      style={optStyle}
+                      disabled={answeredQuizIndex === quizIndex || Boolean(quizFeedback)}
+                      onClick={() => handleMCQAnswer(opt)}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -498,6 +592,12 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               <p className="sub" style={{ margin: '10px auto' }}>
                 Отличная тренировка! Твои знания зафиксированы.
               </p>
+              {((activeGame === 'srs' && srsQueue.length > srsInitialTotal) ||
+                ((activeGame === 'mcq' || activeGame === 'audio') && quizPool.length > quizInitialTotal)) && (
+                <div style={{ margin: '12px auto', maxWidth: '420px', padding: '10px 14px', background: 'rgba(14, 138, 109, 0.12)', borderRadius: '10px', fontSize: '14px', color: 'var(--sea)' }}>
+                  ✨ Все допущенные ошибки отработаны повторно и успешно закреплены!
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '20px' }}>
                 <button
                   className="btn sun big"

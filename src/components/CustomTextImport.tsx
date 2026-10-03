@@ -1,6 +1,6 @@
-﻿import React, { useState } from 'react';
-import { Lesson, UserState, TextPiece } from '../types';
-import { WORDS } from '../data/words';
+import React, { useMemo, useState } from 'react';
+import { Lesson, UserState } from '../types';
+import { tokenizeLessonSentence } from '../services/immersionService';
 import { StorageService } from '../services/storageService';
 import { toastService } from '../services/toastService';
 import { audioService } from '../services/audioService';
@@ -49,6 +49,27 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
     setError('');
   };
 
+  const previewStats = useMemo(() => {
+    if (!rawText.trim()) return null;
+    const sentences = rawText.split(/(?<=[.!?])\s+|\r?\n+/).map((s) => s.trim()).filter(Boolean);
+    let totalWords = 0;
+    let recognizedWords = 0;
+    sentences.forEach((sentence, sIdx) => {
+      const tokens = tokenizeLessonSentence([sentence], sIdx, userState.currentLang);
+      tokens.forEach((t) => {
+        if (t.kind === 'word') {
+          totalWords += 1;
+          if (t.wordId && t.target) recognizedWords += 1;
+        }
+      });
+    });
+    return {
+      totalWords,
+      recognizedWords,
+      pct: totalWords > 0 ? Math.round((recognizedWords / totalWords) * 100) : 0,
+    };
+  }, [rawText, userState.currentLang]);
+
   const handleProcessAndSave = () => {
     if (!title.trim() || !rawText.trim()) return;
 
@@ -59,31 +80,12 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
 
     audioService.playSuccess();
 
-    // Tokenize text: split into sentences, then match words against dictionary
-    const sentences = rawText.split(/(?<=[.!?])\s+|\r?\n+/).filter(Boolean);
-
-    // Build dictionary index by russian word
-    const wordRuIndex: Record<string, string> = {};
-    WORDS.forEach((w) => {
-      const lower = w.ru.toLowerCase();
-      wordRuIndex[lower] = w.id;
-    });
-
-    const parsedSentences: TextPiece[][] = sentences.map((sentence) => {
-      const tokens = sentence.split(/(\s+|[.,:;!?…—–«»()%:"“”])/).filter(Boolean);
-      const pieceArr: TextPiece[] = [];
-
-      tokens.forEach((token) => {
-        const cleanWord = token.trim().toLowerCase().replace(/^[.,:;!?…—–«»()%:"“”]+|[.,:;!?…—–«»()%:"“”]+$/g, '');
-        if (cleanWord && wordRuIndex[cleanWord]) {
-          pieceArr.push({ id: wordRuIndex[cleanWord], ru: token });
-        } else {
-          pieceArr.push(token);
-        }
-      });
-
-      return pieceArr;
-    });
+    // Sentences are stored cleanly as string pieces; the immersion tokenizer
+    // handles dictionary resolution, lemmatization and inflections dynamically.
+    const sentences = rawText
+      .split(/(?<=[.!?])\s+|\r?\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
 
     const customLesson: Lesson = {
       id: `custom_${Date.now()}`,
@@ -91,7 +93,7 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
       emoji: emoji || '📖',
       lvl: 2,
       description: 'Пользовательский текст для погружения',
-      sent: parsedSentences,
+      sent: sentences.map((sentence) => [sentence]),
     };
 
     userState.customLessons.push(customLesson);
@@ -160,6 +162,25 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
           }}
           style={{ width: '100%', padding: '14px', fontSize: '16px', lineHeight: 1.6, border: '2px solid var(--ink)', borderRadius: '14px', background: 'var(--card)', color: 'var(--ink)', resize: 'vertical' }}
         />
+
+        {previewStats && (
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            marginTop: '10px',
+            padding: '10px 14px',
+            background: 'var(--paper2)',
+            borderRadius: '8px',
+            fontSize: '13px'
+          }}>
+            <span>Всего слов: <b>{previewStats.totalWords}</b></span>
+            <span style={{ color: 'var(--sea)' }}>
+              🌊 Будет адаптировано: <b>{previewStats.recognizedWords}</b> слов ({previewStats.pct}%)
+            </span>
+          </div>
+        )}
 
         {error && <div className="errorbox" role="alert">{error}</div>}
 

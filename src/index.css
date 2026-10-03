@@ -1374,6 +1374,37 @@ header .iconbtn .ic {
   background: rgba(14, 138, 109, 0.15);
 }
 
+.tk.cloze-masked {
+  background: var(--paper2);
+  border: 1.5px dashed var(--sea);
+  color: var(--sea);
+  padding: 1px 7px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.94em;
+}
+
+[data-theme="dark"] .tk.cloze-masked {
+  background: rgba(14, 138, 109, 0.12);
+  border-color: var(--sea);
+  color: #7ee7c5;
+}
+
+.tk.cloze-masked:hover {
+  background: rgba(14, 138, 109, 0.2);
+  transform: translateY(-1px);
+}
+
+.tk.cloze-revealed {
+  animation: clozePop 0.25s ease-out;
+}
+
+@keyframes clozePop {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 .readbar {
   display: flex;
   gap: 12px;

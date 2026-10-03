@@ -89,7 +89,7 @@ export const App: React.FC = () => {
   const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
 
   // Word Popup Card State
-  const [popupWord, setPopupWord] = useState<{ word: Word; position: { left: number; top: number } } | null>(null);
+  const [popupWord, setPopupWord] = useState<{ word: Word; position: { left: number; top: number }; contextSentence?: string } | null>(null);
 
   // Modals State
   const [showOnboarding, setShowOnboarding] = useState<boolean>(!userState.onboarded);
@@ -376,7 +376,7 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  const handleOpenWordPopup = useCallback((word: Word, rect: DOMRect) => {
+  const handleOpenWordPopup = useCallback((word: Word, rect: DOMRect, contextSentence?: string) => {
     // WordCardModal clamps the card against the viewport once it has measured
     // itself, so only the anchor point needs a sane initial guess here.
     const x = Math.min(Math.max(12, rect.left + rect.width / 2 - 140), window.innerWidth - 292);
@@ -384,7 +384,7 @@ export const App: React.FC = () => {
     if (y + 230 > window.innerHeight) {
       y = Math.max(10, rect.top - 240);
     }
-    setPopupWord({ word, position: { left: x, top: y } });
+    setPopupWord({ word, position: { left: x, top: y }, contextSentence });
   }, []);
 
   const handleClosePopup = useCallback(() => setPopupWord(null), []);
@@ -561,6 +561,7 @@ export const App: React.FC = () => {
         <WordCardModal
           word={popupWord.word}
           position={popupWord.position}
+          contextSentence={popupWord.contextSentence}
           isLearned={isPopupWordLearned}
           currentLang={userState.currentLang}
           onLearn={handleLearnWord}
