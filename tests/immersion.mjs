@@ -235,11 +235,15 @@ assert.equal(foreign[2].wordId, 'g_we', 'an inflection of FOREIGN_INFLECTIONS wi
 assert.equal(foreign[4].wordId, 'friend', 'the rest of the sentence is resolved through the exact index');
 count += 6;
 
+// The generated frequency corpus is no longer dictionary content, so English
+// function words that only it could resolve ("the", "drink") now stay
+// unresolved — an honest "no entry" rather than a wrong translation. Words the
+// curriculum curates still resolve, and "and" comes from the grammar table.
 const shortWords = api.tokenizeForeignSentence('The cat and the dog drink water.', 9, 'en');
 assert.deepEqual(
   shortWords.filter((token) => token.kind === 'word').map((token) => token.wordId),
-  ['v0001', 'cat', 'v0003', 'v0001', 'dog', 'v1249', 'water'],
-  'words shorter than four characters are resolved by the exact index only, and the first record of the dictionary wins'
+  [undefined, 'cat', 'g_and_but', undefined, 'dog', undefined, 'water'],
+  'short words resolve through the exact index and the grammar table, and unknown ones stay unknown'
 );
 count++;
 
@@ -258,8 +262,8 @@ count += 2;
 const inflected = api.tokenizeForeignSentence('Idem do mesta a jdeme domov.', 4, 'sk');
 assert.deepEqual(
   inflected.filter((token) => token.kind === 'word').map((token) => token.wordId),
-  ['go', 'g_in', 'city', 'g_and', 'go', 'v0138'],
-  'Slovak inflections and grammar helpers map back to their base words'
+  ['go', 'g_in', 'city', 'g_and', 'go', undefined],
+  'Slovak inflections and grammar helpers map back to their base words; "domov" has no curated entry'
 );
 const czech = api.tokenizeForeignSentence('Ona čte knihu a pije kávu.', 5, 'cs');
 assert.deepEqual(
@@ -270,8 +274,8 @@ assert.deepEqual(
 const englishInflection = api.tokenizeForeignSentence('She reads books and drinks tea.', 6, 'en');
 assert.deepEqual(
   englishInflection.filter((token) => token.kind === 'word').map((token) => token.wordId),
-  ['v0061', 'read', 'v0675', 'v0003', 'drink', 'tea'],
-  'English inflections map back to their base words'
+  ['g_she', 'read', 'book', 'g_and_but', 'drink', 'tea'],
+  'English inflections map back to their base words, function words to the grammar table'
 );
 count += 3;
 
@@ -373,8 +377,11 @@ const sentencesOf = (lessons, lang) => lessons.flatMap((lesson) => lesson.sent.m
 }));
 const conceptSentences = sentencesOf(api.LESSONS.slice(0, 5), 'de');
 const allKeys = conceptSentences.flat().filter((token) => token.kind === 'word' && token.wordId && token.target);
+/** Every word in the lesson, translatable or not. This is the denominator. */
+const totalWordTokens = (sentences) => sentences.flat().filter((token) => token.kind === 'word').length;
 assert(allKeys.length > 100, 'the fixture has a decent number of concept tokens, got ' + allKeys.length);
-count++;
+assert(totalWordTokens(conceptSentences) > allKeys.length, 'the fixture has words with no translation, so the two denominators differ');
+count += 2;
 
 const learnedSets = [
   new Set(),
@@ -399,26 +406,30 @@ for (const share of [0, 5, 20, 40, 60, 80, 95, 99, 100, 150]) {
     check(new Set(selectedKeys).size === selectedKeys.length, 'no duplicated keys at share ' + share);
     check(selectedKeys.every((key) => allKeys.some((token) => token.key === key)), 'only real concept keys are selected at share ' + share);
 
-    // Main invariant: a learned word is always shown in the studied language.
-    for (const token of allKeys) {
-      if (learned.has(token.wordId)) {
-        check(first.has(token.key), 'a learned word is always immersed (share ' + share + ', ' + token.wordId + ')');
-      }
-    }
-
     if (share >= 100) {
       check(first.size === allKeys.length, 'full immersion shows every concept at share ' + share);
-    } else {
-      // Below 100% the effective share is the 5..99 window of the service, and a
-      // learned word is always added on top of the quota it was picked from.
-      const effective = Math.max(5, Math.min(99, share));
-      const quota = Math.max(1, Math.round((allKeys.length * effective) / 100));
-      const learnedTokens = allKeys.filter((token) => learned.has(token.wordId)).length;
-      check(first.size <= quota + learnedTokens, 'the quota is respected at share ' + share);
-      const stillRussian = allKeys.filter((token) => !learned.has(token.wordId));
-      if (stillRussian.length > 0) {
-        check(first.size < allKeys.length, 'at least one word stays in Russian below 100% (share ' + share + ')');
+      // At 100% there is no budget to stay inside, so a learned word is still
+      // guaranteed to be visible.
+      for (const token of allKeys) {
+        if (learned.has(token.wordId)) {
+          check(first.has(token.key), 'a learned word is always immersed at 100% (' + token.wordId + ')');
+        }
       }
+    } else {
+      // Below 100% the effective share is the 5..99 window of the service. The
+      // quota counts the WHOLE text, so it is computed from every word in the
+      // lesson rather than from the translatable subset — and it is now a hard
+      // ceiling that learned words must fit inside, not add to.
+      const effective = Math.max(5, Math.min(99, share));
+      const budget = Math.max(1, Math.min(allKeys.length, Math.round((totalWordTokens(conceptSentences) * effective) / 100)));
+      const learnedTokens = allKeys.filter((token) => learned.has(token.wordId));
+
+      check(first.size === budget, 'the visible count is exactly the quota at share ' + share);
+      // Learned words win the slots they need, in document order, and only
+      // ever up to the quota.
+      learnedTokens.slice(0, budget).forEach((token) => {
+        check(first.has(token.key), 'a learned word takes a slot inside the quota (share ' + share + ', ' + token.wordId + ')');
+      });
     }
   }
 }
@@ -440,14 +451,36 @@ assert.deepEqual(
 );
 count += 3;
 
-// Learning a word may only add keys, never move the visible set around.
+// The visible set is a fixed-size budget, so learning a word cannot grow it.
+// It may swap words in and out — the learned ones take slots — but it must
+// never reshuffle the rest, and a word whose occurrences are all on screen
+// leaves the page exactly as it was.
 for (const share of [20, 40, 60, 80, 95]) {
   const before = api.selectImmersionTokenKeys(conceptSentences, share, new Set());
   for (const token of allKeys) {
     const learned = new Set([token.wordId]);
     const after = api.selectImmersionTokenKeys(conceptSentences, share, learned);
-    for (const key of before) {
-      check(after.has(key), 'learning ' + token.wordId + ' keeps ' + key + ' visible at share ' + share);
+    const occurrences = allKeys.filter((entry) => entry.wordId === token.wordId);
+    check(
+      after.size === before.size,
+      'learning ' + token.wordId + ' keeps the exact quota at share ' + share
+    );
+    occurrences.forEach((entry) => {
+      check(after.has(entry.key), 'learning ' + token.wordId + ' shows every occurrence (' + entry.key + ', share ' + share + ')');
+    });
+    if (occurrences.every((entry) => before.has(entry.key))) {
+      assert.deepEqual(after, before, 'learning a fully visible word changes nothing at share ' + share);
+    } else {
+      const dropped = [...before].filter((key) => !after.has(key));
+      const added = [...after].filter((key) => !before.has(key));
+      // A word can occur several times in the text, so learning it may open as
+      // many slots as it has occurrences — but never more.
+      check(added.length <= occurrences.length, 'learning ' + token.wordId + ' adds at most its occurrences at share ' + share);
+      check(dropped.length === added.length, 'learning ' + token.wordId + ' evicts exactly what it adds at share ' + share);
+      check(
+        dropped.every((key) => allKeys.find((entry) => entry.key === key).wordId !== token.wordId),
+        'learning ' + token.wordId + ' never evicts itself at share ' + share
+      );
     }
   }
 }
@@ -468,7 +501,14 @@ const immersed = statsConcepts.filter((token) => statsKeys.has(token.key));
 const learnedOnScreen = immersed.filter((token) => statsLearned.has(token.wordId));
 assert.equal(stats.totalConcepts, statsConcepts.length, 'totalConcepts counts the concept tokens');
 assert.equal(stats.immersedConcepts, immersed.length, 'immersedConcepts counts the selected tokens');
-assert.equal(stats.actualShare, Math.round((immersed.length / statsConcepts.length) * 100), 'actualShare is the rounded real share');
+// The share is of the WHOLE text. Counting only the translatable words made the
+// dial mean something else from what it says: a page could report 100% while
+// reading mostly Russian.
+assert.equal(
+  stats.actualShare,
+  Math.round((immersed.length / stats.totalWords) * 100),
+  'actualShare is measured against every word in the text'
+);
 assert.equal(stats.targetShare, 60, 'targetShare is echoed back');
 assert.equal(stats.learnedCount, learnedOnScreen.length, 'learnedCount counts the learned words on screen');
 assert.equal(stats.newCount, immersed.length - learnedOnScreen.length, 'newCount is the rest of the visible words');
@@ -478,8 +518,9 @@ assert.equal(
   statsSentences.flat().filter((token) => token.kind === 'word').length,
   'totalWords counts every word token'
 );
+assert(stats.totalWords >= stats.totalConcepts, 'the text holds at least as many words as translatable ones');
 assert(stats.actualShare <= 100, 'the real share never exceeds 100%');
-count += 9;
+count += 10;
 
 const emptyStats = api.getImmersionStats([], new Set(), 40, new Set());
 assert.deepEqual(
@@ -488,9 +529,77 @@ assert.deepEqual(
   'an empty lesson reports honest zeroes'
 );
 const fullStats = api.getImmersionStats(statsSentences, new Set(statsConcepts.map((token) => token.key)), 100, new Set());
-assert.equal(fullStats.actualShare, 100, 'a fully immersed lesson reports 100%');
+// 100% means "every word that can be translated", which is still capped by the
+// dictionary: the rest of the text has no entry in this language. So on a real
+// lesson it lands BELOW the setting, and reporting the setting instead is what
+// used to make the page claim 100% while reading mostly Russian.
+assert.equal(
+  fullStats.actualShare,
+  Math.round((statsConcepts.length / fullStats.totalWords) * 100),
+  'full immersion reports the whole-text share, not a hardcoded 100'
+);
+assert(fullStats.totalWords > statsConcepts.length, 'the real fixture has untranslatable words, so 100% is unreachable there');
+assert(fullStats.actualShare < 100, 'a lesson with untranslatable words cannot honestly report 100%');
 assert.equal(fullStats.learnedCount, 0, 'nothing is learned in that fixture');
-count += 3;
+count += 5;
+
+// A lesson where every word has an entry must reach the setting exactly.
+const allTranslatable = [[
+  { key: 'a', text: 'кот', kind: 'word', wordId: 'cat', target: 'mačka' },
+  { key: 'b', text: 'спит', kind: 'word', wordId: 'sleep', target: 'spí' },
+  { key: 'c', text: 'окно', kind: 'word', wordId: 'window', target: 'okno' },
+  { key: 'd', text: 'и', kind: 'word', wordId: 'g_and', target: 'a' },
+]];
+const fullKeys = api.selectImmersionTokenKeys(allTranslatable, 100, new Set());
+assert.equal(fullKeys.size, 4, '100% exposes every word when all of them are translatable');
+assert.equal(
+  api.getImmersionStats(allTranslatable, fullKeys, 100, new Set()).actualShare,
+  100,
+  'a fully translatable lesson does report 100%'
+);
+count += 2;
+
+// The worked example from the spec: 50 words at 50% means 25 words translated.
+const fifty = [[]];
+for (let i = 0; i < 50; i += 1) {
+  fifty[0].push({ key: 'w' + i, text: 'слово' + i, kind: 'word', wordId: 'id' + i, target: 'slovo' + i });
+}
+const halfKeys = api.selectImmersionTokenKeys(fifty, 50, new Set());
+assert.equal(halfKeys.size, 25, '50% of a 50-word text is exactly 25 words');
+assert.equal(
+  api.getImmersionStats(fifty, halfKeys, 50, new Set()).actualShare,
+  50,
+  'the measured share matches the request'
+);
+count += 2;
+
+// A share that does not divide evenly rounds to the nearest whole word.
+const fortySeven = [[]];
+for (let i = 0; i < 47; i += 1) {
+  fortySeven[0].push({ key: 'x' + i, text: 'слово' + i, kind: 'word', wordId: 'id' + i, target: 'slovo' + i });
+}
+const roundedKeys = api.selectImmersionTokenKeys(fortySeven, 60, new Set());
+// 47 * 0.6 = 28.2 -> 28 words.
+assert.equal(roundedKeys.size, 28, '60% of a 47-word text rounds to 28 words, got ' + roundedKeys.size);
+const oddKeys = api.selectImmersionTokenKeys(fortySeven, 50, new Set());
+// 47 * 0.5 = 23.5 -> 24 words, the nearest integer.
+assert.equal(oddKeys.size, 24, '50% of a 47-word text rounds to 24 words, got ' + oddKeys.size);
+count += 2;
+
+// The setting can never be exceeded by the words that happen to be translatable:
+// a text where only half the words have entries tops out at 50% however high
+// the dial goes, and the difference has to be visible in the report.
+const halfTranslatable = [[]];
+for (let i = 0; i < 40; i += 1) {
+  halfTranslatable[0].push(i % 2 === 0
+    ? { key: 'h' + i, text: 'есть' + i, kind: 'word', wordId: 'id' + i, target: 'ma' + i }
+    : { key: 'h' + i, text: 'нет' + i, kind: 'word' });
+}
+const cappedKeys = api.selectImmersionTokenKeys(halfTranslatable, 100, new Set());
+const cappedStats = api.getImmersionStats(halfTranslatable, cappedKeys, 100, new Set());
+assert.equal(cappedStats.actualShare, 50, 'a half-translatable text caps at 50%');
+assert.equal(cappedStats.targetShare, 100, 'the setting asked for more than the text can give');
+count += 2;
 
 // The stats must stay identical when the selection is recomputed.
 for (let repeat = 0; repeat < 3; repeat += 1) {
@@ -516,4 +625,4 @@ const referenceMs = Date.now() - referenceStart;
 console.log('  timing (informational): indexed ' + indexedMs + 'ms vs linear reference ' + referenceMs + 'ms over the Slovak pack');
 check(referenceMs > 0, 'the reference run is measurable');
 
-console.log('PASS: ' + count + ' immersion cases — lesson tokenizer, foreign tokenizer, ' + comparedSentences + ' sentences (' + comparedTokens + ' tokens) identical to the frozen linear implementation, stable immersion selection, honest statistics.');
+console.log('PASS: ' + count + ' immersion cases — lesson tokenizer, foreign tokenizer, ' + comparedSentences + ' sentences (' + comparedTokens + ' tokens) identical to the frozen linear implementation, stable immersion selection, whole-text share statistics.');

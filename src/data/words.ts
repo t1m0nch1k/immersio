@@ -2,6 +2,7 @@ import { Word } from '../types';
 import { SLOVAK_TRANSLATIONS } from './slovak';
 import { CZECH_TRANSLATIONS } from './czech';
 import { EXPANDED_WORDS } from './expandedWords';
+import { LESSON_LINKED_GENERATED_IDS } from './lessonLinkedWords';
 
 export const BASE_WORDS: Word[] = [
   // Основа & Люди
@@ -190,10 +191,17 @@ export const BASE_WORDS: Word[] = [
   { id: 'hope', ru: 'надежда', en: 'hope', es: 'esperanza', de: 'Hoffnung', fr: 'espoir', it: 'speranza', ja: '希望', sk: 'nádej', lvl: 2, cat: 'эмоции' }
 ];
 
+// Only the generated entries that lesson texts actually resolve to. The rest of
+// the frequency corpus is not dictionary content: it never appears in a lesson
+// and a measurable slice of it has broken translations. See
+// `lessonLinkedWords.ts` for the full reasoning.
+const linkedGeneratedIds = new Set(LESSON_LINKED_GENERATED_IDS);
+const RELEVANT_EXPANDED_WORDS = EXPANDED_WORDS.filter((word) => linkedGeneratedIds.has(word.id));
+
 // Keep the curated translations first when the generated frequency corpus
 // contains the same English headword.
 const uniqueWords = new Map<string, Word>();
-[...BASE_WORDS, ...EXPANDED_WORDS].forEach((word) => {
+[...BASE_WORDS, ...RELEVANT_EXPANDED_WORDS].forEach((word) => {
   const key = word.en.trim().toLowerCase();
   if (!uniqueWords.has(key)) uniqueWords.set(key, word);
 });

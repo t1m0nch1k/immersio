@@ -154,7 +154,20 @@ export interface ListeningDayActivity {
 }
 
 export interface UserLanguageProgress {
-  immersion: number; // 5 to 90%
+  /**
+   * Target share of the **whole text** shown in this language: 60 means 60% of
+   * every word of every lesson, not 60% of the words that happen to have a
+   * translation. Words with no entry for this language cap what is reachable,
+   * and the reader reports the share it actually achieved.
+   */
+  immersion: number;
+  /**
+   * Passed lessons held at the current `immersion`. The dial only advances on
+   * its own once this reaches its threshold, so a depth has to be lived at for
+   * a run of lessons rather than merely stepped over. Reset on any change of
+   * depth.
+   */
+  depthLessons?: number;
   learnedWords: string[]; // word IDs
   doneLessons: Record<string, { score: number; pct: number; date: string }>;
   srsData: Record<string, SRSItem>;

@@ -11,7 +11,15 @@ import {
   tokenizeLessonSentence,
   tokenizeForeignSentence,
 } from '../services/immersionService';
-import { getImmersionProfile, IMMERSION_PRESETS } from '../services/immersionProfile';
+import {
+  getImmersionProfile,
+  IMMERSION_LESSONS_PER_STEP,
+  IMMERSION_PRESETS,
+  clearManualImmersion,
+  isImmersionManual,
+  noteManualImmersion,
+  decideDepth,
+} from '../services/immersionProfile';
 import { getImmersiveLessonText } from '../data/immersiveTranslations';
 import { shuffle } from '../utils';
 import { buildRussianDistractors, buildTargetDistractors, getRussianText, getTargetText, getWord } from '../utils/words';
@@ -291,10 +299,22 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     openWordPopupRef.current = onOpenWordPopup;
   }, [onOpenWordPopup]);
 
+  // Whether the dial is hand-set. Read once on mount and refreshed on change, so
+  // the "return to automatic" affordance can appear without polling storage.
+  const [manualDepth, setManualDepth] = useState(() => isImmersionManual());
+  useEffect(() => {
+    setManualDepth(isImmersionManual());
+  }, [userState]);
+
   // Handle in-reader immersion slider change
   const handleImmersionChange = (newVal: number) => {
     const progress = StorageService.ensureLangProgress(userState, currentLang);
     progress.immersion = newVal;
+    // A hand-set depth outranks the engine from here on, and starting a new
+    // depth always begins a new consolidation run.
+    noteManualImmersion();
+    setManualDepth(true);
+    progress.depthLessons = 0;
     StorageService.save(userState);
     onUpdateState({ ...userState });
   };
@@ -388,7 +408,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     const pass = totalQuestions === 0 || pct >= PASS_PERCENT;
 
     let xpGain = 0;
-    let streakMsg = '';
+let streakMsg = '';
+let depthNote = '';
 
     // `ensureLangProgress` and the fields below are mutated in place; this is the
     // project-wide pattern and the `{ ...userState }` copy at the end is what
@@ -412,8 +433,27 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         };
 
         xpGain = 25 + totalScore * 3;
-        const oldImmersion = currentProgress.immersion;
-        currentProgress.immersion = Math.min(100, currentProgress.immersion + 5);
+
+        // The dial moves on its own, but only once the learner has held the
+        // current depth for a run of lessons — advancing after every lesson
+        // reached full immersion by lesson fifteen, which is a page of easy
+        // fifths being mistaken for the whole language.
+        if (!isImmersionManual()) {
+          const depth = decideDepth(
+            currentProgress.immersion,
+            currentProgress.depthLessons ?? 0,
+            { pct, passed: pass },
+          );
+          const from = currentProgress.immersion;
+          currentProgress.immersion = depth.immersion;
+          currentProgress.depthLessons = depth.lessonsAtDepth;
+          if (depth.moved === 'up') {
+            streakMsg = '';
+            depthNote = `🌊 Глубина выросла: ${from}% → ${depth.immersion}% — закрепи на следующих ${IMMERSION_LESSONS_PER_STEP} уроках.`;
+          } else if (depth.moved === 'down') {
+            depthNote = `🌊 Глубина снижена: ${from}% → ${depth.immersion}%.`;
+          }
+        }
 
         const streakResult = StorageService.updateStreak(userState);
         if (streakResult.updated) {
@@ -421,9 +461,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         } else {
           streakMsg = '✅ Сегодняшний стрик уже засчитан.';
         }
-
-        if (currentProgress.immersion > oldImmersion) {
-          streakMsg += ` | 🌊 Глубина: ${oldImmersion}% → ${currentProgress.immersion}%`;
+        if (depthNote) {
+          streakMsg = streakMsg ? `${streakMsg} | ${depthNote}` : depthNote;
         }
       } else {
         xpGain = 10;
@@ -467,13 +506,14 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
         {/* Immersion Stats Chips */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '10px 0 14px' }}>
+          {/* The measured share, never the setting. The slider is a share of the whole
+              text, so 60% of a 50-word text is 30 words — and only `actualShare`
+              says how many were really shown. */}
           <span className="chip sun">
-            🌊 {langProg.immersion === 100 ? 100 : immersionStats.actualShare}% слов на языке
+            🌊 {immersionStats.actualShare}% слов на языке
           </span>
           <span className="chip">
-            {langProg.immersion === 100
-              ? '🎯 100% Полное погружение'
-              : `🎯 ${immersionStats.immersedConcepts} из ${immersionStats.totalConcepts} ключевых слов`}
+            🎯 {immersionStats.immersedConcepts} из {immersionStats.totalConcepts} переводимых слов
           </span>
           <span className="chip">✨ Новых: {immersionStats.newCount}</span>
           <span className="chip sea"><Icon name="check" className="sm" /> В словаре: {immersionStats.learnedCount}</span>
@@ -548,6 +588,22 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                 ))}
               </div>
 
+              {/* Without this the engine could be switched off forever by one stray tap on
+                  the slider, with no way back. Only shown while the dial is
+                  hand-set, so it is not noise the rest of the time. */}
+              {manualDepth && (
+                <button
+                  type="button"
+                  className="catchip"
+                  onClick={() => {
+                    audioService.playClick();
+                    clearManualImmersion();
+                    setManualDepth(false);
+                  }}
+                >
+                  ↺ Вернуть автоматический режим
+                </button>
+              )}
               {langProg.immersion === 100 && (
                 <div
                   style={{
@@ -564,7 +620,18 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                     fontSize: '13px',
                   }}
                 >
-                  <span>🎉 <b>100% полное погружение:</b> текст полностью на {LANGUAGES[currentLang].name}. Нажмите на любое слово для перевода и озвучки!</span>
+{/* The setting is a share of the whole text, and only the words
+                      that have an entry in this language can follow it. So the
+                      banner reports what was achieved and names the ceiling,
+                      instead of claiming the text is fully translated. */}
+                  <span>
+                    🎉 <b>Глубина {langProg.immersion}%:</b>{' '}
+                    {immersionStats.actualShare}% слов текста на {LANGUAGES[currentLang].name}.{' '}
+                    {immersionStats.actualShare < langProg.immersion
+                      ? `Остальное не переводится автоматически: в этом языке есть запись только для ${immersionStats.totalConcepts} из ${immersionStats.totalWords} слов.`
+                      : 'Все переводимые слова этого урока на языке.'}{' '}
+                    Нажмите на любое слово для перевода и озвучки!
+                  </span>
                   {originalTokens && (
                     <button
                       className="btn small ghost"
@@ -699,7 +766,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                   🎯 К заданиям урока
                 </button>
                 <span style={{ color: 'var(--ink2)', fontSize: '14px' }}>
-                  выполни задания, чтобы засчитать урок и повысить погружение (+5%)
+                  {/* Was "+5% per lesson", which described the engine that raced
+                      to full immersion. The dial now moves by a whole preset, and
+                      only after a run of lessons. */}
+                  {manualDepth
+                    ? 'выполни задания, чтобы засчитать урок'
+                    : `выполни задания, чтобы засчитать урок. Глубина сама вырастет после ${IMMERSION_LESSONS_PER_STEP} сильных уроков`}
                 </span>
               </>
             ) : (

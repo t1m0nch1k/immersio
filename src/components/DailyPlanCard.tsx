@@ -15,6 +15,19 @@ interface DailyPlanCardProps {
   compact?: boolean;
 }
 
+/**
+ * The heading counted three steps unconditionally, which stopped being true the
+ * moment a fourth task appeared — and a heading that lies about the plan is
+ * worse than no heading.
+ */
+const STEPS: Record<number, string> = {
+  3: 'Три шага к прогрессу',
+  4: 'Четыре шага к прогрессу',
+  5: 'Пять шагов к прогрессу',
+};
+const stepsLabel = (count: number): string =>
+  STEPS[count] ?? `${count} шагов к прогрессу`;
+
 const taskIcon: Record<StudyTask['type'], IconName> = {
   review: 'refresh',
   'new-words': 'book-bookmark',
@@ -66,8 +79,10 @@ export const DailyPlanCard: React.FC<DailyPlanCardProps> = ({
     <section className={`card daily-plan ${compact ? 'daily-plan-compact' : ''}`} aria-labelledby="daily-plan-title">
       <div className="daily-plan-head">
         <div>
-          <div className="overline">план на сегодня · 15 минут</div>
-          <h2 id="daily-plan-title">Три шага к прогрессу {plan.completed ? '🎉' : '🧭'}</h2>
+          <div className="overline">план на сегодня · {plan.totalMinutes} минут</div>
+          <h2 id="daily-plan-title">
+            {stepsLabel(plan.tasks.length)} {plan.completed ? '🎉' : '🧭'}
+          </h2>
         </div>
         <div className="daily-plan-progress">
           <b>{plan.completedMinutes}/{plan.totalMinutes}</b>

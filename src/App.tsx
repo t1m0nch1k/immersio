@@ -3,6 +3,7 @@ import { UserState, Word, Lesson, LanguageCode } from './types';
 import { LESSONS } from './data/lessons';
 import { LANGUAGES } from './data/languages';
 import { StorageService } from './services/storageService';
+import { noteManualImmersion } from './services/immersionProfile';
 import { audioService } from './services/audioService';
 import { toastService } from './services/toastService';
 import { syncService } from './services/syncService';
@@ -303,6 +304,10 @@ export const App: React.FC = () => {
   const handleUpdateImmersion = useCallback((val: number) => {
     const langProg = StorageService.ensureLangProgress(userState, userState.currentLang);
     langProg.immersion = val;
+    // Same control as the reader's: a hand-set depth outranks the engine, and a
+    // new depth starts a new consolidation run.
+    noteManualImmersion();
+    langProg.depthLessons = 0;
     StorageService.save(userState);
     StorageService.checkAndUnlockAchievements(userState, showToast);
     setUserState({ ...userState });

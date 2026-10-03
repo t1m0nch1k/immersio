@@ -84,7 +84,7 @@ const SLOVAK_LESSONS: Record<string, string[]> = {
   l10: [
     'Prišli sme do mesta a vchádzame do krásneho hotela.',
     'Recepčný kontroluje našu rezerváciu a vydáva nám kľúč.',
-    'Naša izba je veľmi svetlá a z okna sa otvára výhľad na hory.',
+    'Naša izba je veľmi svetlá: na stole horí lampa a z okna sa otvára výhľad na hory.',
     'Položíme veľký kufor a ponáhľame sa na prechádzku.',
   ],
 };
@@ -169,7 +169,7 @@ const CZECH_LESSONS: Record<string, string[]> = {
   l10: [
     'Přišli jsme do města a vstupujeme do krásného hotelu.',
     'Recepční kontroluje naši rezervaci a vydává nám klíč.',
-    'Náš pokoj je velmi světlý a z okna se otevírá výhled na hory.',
+    'Náš pokoj je velmi světlý: na stole hoří lampa a z okna se otevírá výhled na hory.',
     'Položíme velký kufr a spěcháme na procházku.',
   ],
 };
@@ -254,7 +254,7 @@ const ENGLISH_LESSONS: Record<string, string[]> = {
   l10: [
     'We arrived in the city and enter a beautiful hotel.',
     'The receptionist checks our reservation and gives us the key.',
-    'Our room is very bright, and a mountain view opens from the window.',
+    'Our room is very bright: a lamp is lit on the table, and a mountain view opens from the window.',
     'We put down our big suitcase and hurry for a walk.',
   ],
 };

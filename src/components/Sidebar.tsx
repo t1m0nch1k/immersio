@@ -3,6 +3,7 @@ import { UserState } from '../types';
 import { StorageService, getLocalDateKey } from '../services/storageService';
 import { audioService } from '../services/audioService';
 import { getImmersionProfile } from '../services/immersionProfile';
+import { clearManualImmersion, isImmersionManual } from '../services/immersionProfile';
 import { Route } from '../routes';
 import { NAV_ITEMS, NavIcon, isNavItemActive } from '../navItems';
 import { Icon } from './icons';
@@ -34,6 +35,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const langProg = StorageService.getLangProgress(userState, userState.currentLang);
   const immersion = langProg.immersion;
   const immersionProfile = getImmersionProfile(immersion);
+  // The dial is hand-set until the learner hands control back. Tracked in state
+  // so the affordance appears immediately after a stray tap instead of on the
+  // next mount.
+  const [manualDepth, setManualDepth] = React.useState(() => isImmersionManual());
+  React.useEffect(() => {
+    setManualDepth(isImmersionManual());
+  }, [userState]);
 
   // Escape and a backdrop close the drawer, but only while it is open. Registered
   // unconditionally so the listener identity stays stable across toggles.
@@ -131,6 +139,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onChange={handleSliderChange}
             aria-label="Целевая доля слов на изучаемом языке"
           />
+          {manualDepth && (
+            <button
+              type="button"
+              className="catchip"
+              style={{ marginTop: '10px' }}
+              onClick={() => {
+                audioService.playClick();
+                clearManualImmersion();
+                setManualDepth(false);
+              }}
+            >
+              ↺ Вернуть автоматический режим
+            </button>
+          )}
           <div className="note">
             {immersionProfile.description} Выученные слова остаются на языке оригинала, а остальные
             открываются постепенно.

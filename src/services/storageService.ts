@@ -99,6 +99,7 @@ export function getLocalDateKey(date = new Date()): string {
 export function getInitialProgress(): UserLanguageProgress {
   return {
     immersion: 10,
+    depthLessons: 0,
     learnedWords: [],
     doneLessons: {},
     srsData: {},
@@ -207,8 +208,12 @@ const sanitizeLanguageProgress = (value: unknown): UserLanguageProgress => {
   const rawSession = isPlainObject(progress.grammarSession) ? progress.grammarSession : null;
 
   return {
-    // The immersion slider works in percent, so anything outside 0..100 is noise.
+    // The immersion slider works in percent of the whole text, so anything
+    // outside 0..100 is noise.
     immersion: Math.min(100, Math.max(0, finiteNumber(progress.immersion, initial.immersion))),
+    // Lessons held at the current depth. A missing or corrupt value reads as 0,
+    // which is simply "the run has not started", never a silent skip.
+    depthLessons: nonNegativeNumber(progress.depthLessons),
     // Remove ids created by the old unknown-token fallback. They do not
     // point to a dictionary record and would otherwise inflate counts or
     // create blank practice answers after a reload.

@@ -14,12 +14,17 @@ export interface ImmersionToken {
 }
 
 export interface ImmersionStats {
+  /** Words in the lesson that have a translation in the target language. */
   totalConcepts: number;
+  /** Of those, how many were actually shown translated. */
   immersedConcepts: number;
+  /** `immersedConcepts / totalWords` — the share a reader can check by eye. */
   actualShare: number;
+  /** What the slider asked for. May exceed what the lesson can deliver. */
   targetShare: number;
   learnedCount: number;
   newCount: number;
+  /** Every word in the lesson, translated or not. The denominator. */
   totalWords: number;
 }
 
@@ -812,12 +817,28 @@ const pickEvenly = <T,>(items: T[], count: number): T[] => {
 /**
  * Selects which word tokens should be shown in the target language.
  *
+ * The share is a share of the **whole text**, not of the translatable part of
+ * it: a text of 50 words at 60% puts 30 words in the target language. Counting
+ * only the words that happen to have a translation made the dial mean something
+ * quite different from what it says, and a page could claim 100% while reading
+ * mostly Russian — which is exactly what it did.
+ *
+ * A word that has no dictionary entry for this language can never be shown
+ * translated, so the reachable share has a ceiling of
+ * `translatable / totalWords`. The caller is expected to report the measured
+ * result rather than the requested one.
+ *
  * Rules:
- * 1. Any word the user has already learned (learnedWords) is ALWAYS shown in the target language.
- * 2. If targetShare is >= 95%, ALL available concept words are shown in target language.
- * 3. Otherwise, the initial target-language set is picked evenly across the
- *    lesson and stays stable. Learning one word must not make another visible
- *    word suddenly change from Russian into a new target-language word.
+ * 1. The number of words shown in the target language is EXACTLY the rounded
+ *    share of the whole text, never more. A dial set to 60% reads 60%.
+ * 2. Words the user has already learned (learnedWords) are shown in the target
+ *    language in preference to unlearned ones — but they only ever take a slot
+ *    *inside* the budget. Adding them on top of it was what made a 60% dial
+ *    report 69%, which is a dial that lies about its own meaning.
+ * 3. At 100%, every word that *can* be translated is.
+ * 4. Below 100% the remaining slots are spread evenly across the lesson and
+ *    stay stable: learning one word must not make another visible word suddenly
+ *    change from Russian into a new target-language word.
  */
 export const selectImmersionTokenKeys = (
   sentences: ImmersionToken[][],
@@ -825,43 +846,83 @@ export const selectImmersionTokenKeys = (
   learnedWords: Set<string>,
 ): Set<string> => {
   const allTokens = sentences.flat();
-  const conceptTokens = allTokens.filter((token) => token.kind === 'word' && token.wordId && token.target);
+  const wordTokens = allTokens.filter((token) => token.kind === 'word');
+  const conceptTokens = wordTokens.filter((token) => token.wordId && token.target);
 
   if (conceptTokens.length === 0) return new Set();
 
-  // Full immersion target: only at 100% are all concept tokens immersed.
+  // Full immersion target: every translatable word, whatever the text contains.
   if (targetShare >= 100) {
     return new Set(conceptTokens.map((t) => t.key));
   }
 
-  const requestedTotal = Math.min(
-    conceptTokens.length,
-    Math.max(1, Math.round((conceptTokens.length * Math.max(5, Math.min(99, targetShare))) / 100)),
+  const share = Math.max(5, Math.min(99, targetShare));
+  // Rounded to the nearest whole word, which is what the slider promises.
+  const requested = Math.round((wordTokens.length * share) / 100);
+  // Never more than can actually be translated, never zero when the learner
+  // asked for any immersion at all.
+  const budget = Math.max(1, Math.min(conceptTokens.length, requested));
+
+  // There used to be one more cap here — "below 100% keep one word in Russian" —
+  // and it quietly broke the promise the dial makes. On a 29-word lesson with 17
+  // translatable ones, 60% asked for 17 words, the cap cut it to 16, and the
+  // page then reported 55% while the slider said 60%. A cap the user cannot see
+  // and did not ask for is worse than the thing it protects: below 100% the
+  // remaining Russian words are the ones the quota deliberately left out
+  // anyway, and once the dial is above the reachable ceiling the stats panel
+  // already explains why it stopped short.
+
+  // Learned words take a slot inside the budget, in document order, so the
+  // result stays deterministic. When the learner has learned more words than
+  // the budget allows the budget wins — an exact dial beats a promise the page
+  // cannot keep — and the stats panel reports the real count instead.
+  const mandatoryKeys = new Set(
+    conceptTokens
+      .filter((token) => token.wordId && learnedWords.has(token.wordId))
+      .slice(0, budget)
+      .map((token) => token.key),
   );
 
-  // Guarantee that at targetShare < 100, if there are unlearned concepts, at least one remains in Russian
-  const hasUnlearned = conceptTokens.some((token) => !token.wordId || !learnedWords.has(token.wordId));
-  const stableTotal = hasUnlearned && requestedTotal >= conceptTokens.length
-    ? conceptTokens.length - 1
-    : requestedTotal;
+  // The spread comes from the complete ordered list, not from "still unlearned"
+  // tokens, so it does not move around when the user learns something.
+  const base = pickEvenly(conceptTokens, budget);
 
-  // Pick from the complete ordered list, not from "still unlearned" tokens.
-  // That makes the visible set deterministic across a learn action.
-  const stableTokens = pickEvenly(conceptTokens, stableTotal);
-  const selected = new Set(stableTokens.map((token) => token.key));
+  // Fast path: everything already learned is on screen, so the set is exactly
+  // the stable spread. Learning a visible word must change nothing at all.
+  if ([...mandatoryKeys].every((key) => base.some((token) => token.key === key))) {
+    return new Set(base.map((token) => token.key));
+  }
 
-  // Learned words are never hidden, even if they are outside the initial quota.
-  conceptTokens.forEach((token) => {
-    if (token.wordId && learnedWords.has(token.wordId)) {
-      selected.add(token.key);
+  // A learned word was hidden, so it swaps in. Pay for the new slot by evicting
+  // an unlearned one from the end of the spread — one word out, never a
+  // reshuffle of the whole page.
+  const selected = new Set(base.map((token) => token.key));
+  let overflow = 0;
+  mandatoryKeys.forEach((key) => {
+    if (!selected.has(key)) {
+      selected.add(key);
+      overflow += 1;
     }
   });
+
+  if (overflow > 0) {
+    const removable = base.filter((token) => !mandatoryKeys.has(token.key));
+    for (let index = removable.length - 1; index >= 0 && overflow > 0; index -= 1) {
+      selected.delete(removable[index].key);
+      overflow -= 1;
+    }
+  }
 
   return selected;
 };
 
 /**
- * Honest, clear statistics on how much of the lesson vocabulary is immersed
+ * Honest, clear statistics on how much of the lesson vocabulary is immersed.
+ *
+ * `actualShare` is measured against **every word in the text**, matching the
+ * slider: 60% of a 50-word text means 30 words read in the target language. The
+ * pair `translatableWords / totalWords` is the ceiling that share can reach, so
+ * the UI can say why it stopped short instead of overstating the result.
  */
 export const getImmersionStats = (
   sentences: ImmersionToken[][],
@@ -879,8 +940,9 @@ export const getImmersionStats = (
 
   const totalConcepts = conceptTokens.length;
   const immersedConcepts = immersedTokens.length;
+  const totalWords = wordTokens.length;
 
-  const actualShare = totalConcepts > 0 ? Math.round((immersedConcepts / totalConcepts) * 100) : 0;
+  const actualShare = totalWords > 0 ? Math.round((immersedConcepts / totalWords) * 100) : 0;
 
   return {
     totalConcepts,
@@ -889,7 +951,7 @@ export const getImmersionStats = (
     targetShare,
     learnedCount,
     newCount,
-    totalWords: wordTokens.length,
+    totalWords,
   };
 };
 
