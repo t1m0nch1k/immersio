@@ -277,8 +277,35 @@ header {
 /* The wordmark is dropped on a phone: the wave mark is the only control there
    and it carries the whole header on its own. */
 @media (max-width: 920px) {
+  header {
+    padding: 6px 10px;
+    gap: 6px;
+  }
   .logo .logotext { display: none; }
   .logo { padding: 0; }
+  .hgroup {
+    gap: 4px;
+    justify-content: flex-end;
+  }
+  .hgroup .hchip {
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+  .hgroup .hchip.xp {
+    display: none;
+  }
+  .hgroup .iconbtn {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  .hgroup .iconbtn .ic {
+    width: 18px;
+    height: 18px;
+  }
+  .hgroup #avbtn, .hgroup .avatarbtn {
+    width: 34px !important;
+    height: 34px !important;
+  }
 }
 
 .logo {

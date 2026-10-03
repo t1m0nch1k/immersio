@@ -1,12 +1,12 @@
 {
   "appVersion": "2.1.0",
   "appBuild": 1,
-  "bundleVersion": "2026.10.03.1265",
+  "bundleVersion": "2026.10.03.2350",
   "bundleUrl": "https://raw.githubusercontent.com/t1m0nch1k/immersio/main/updates/bundle.zip",
-  "bundleSha256": "aa9e76c7a3e9d1387b0ca4e165ec02a11261c99fc540e49d0de725c66e3d126b",
-  "bundleSizeBytes": 411475,
+  "bundleSha256": "be4aeae0b2eaafc62c59db20730713cc005eaedc10babfd233ffaa068149bac1",
+  "bundleSizeBytes": 411561,
   "apkUrl": "https://raw.githubusercontent.com/t1m0nch1k/immersio/main/updates/app-release.apk",
   "apkSha256": "ea084c2564d48c2415e3015c870eb8375619b7259b9ea9d395d825eb3305d9be",
   "changelog": "🎉 Релиз v2.1.0 (OTA Live Update):\n• Доставка онлайн-обновлений без сторонних маркетов\n• Новый бейдж версии v2.1 в шапке\n• Закрепление ошибок и тренировка произношения",
-  "releasedAt": "2026-10-03T12:41:05.958Z"
+  "releasedAt": "2026-10-03T12:59:10.510Z"
 }

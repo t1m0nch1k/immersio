@@ -95,8 +95,10 @@ export const Header: React.FC<HeaderProps> = ({
         <span className="mark" aria-hidden="true">
           <Icon name="waves" strokeWidth={2.5} />
         </span>
-        <span className="logotext">ПОГРУЖЕНИЕ</span>
-        <span className="chip sun" style={{ fontSize: '10px', padding: '1px 6px', fontWeight: 800, marginLeft: '6px', verticalAlign: 'middle' }}>v2.1</span>
+        <span className="logotext">
+          ПОГРУЖЕНИЕ
+          <span className="chip sun" style={{ fontSize: '10px', padding: '1px 5px', fontWeight: 800, marginLeft: '6px', verticalAlign: 'middle' }}>v2.1</span>
+        </span>
       </button>
 
       {/*
