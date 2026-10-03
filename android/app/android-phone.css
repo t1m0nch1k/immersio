@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Phone sizing for the packaged site.
  *
  * The site's colours, components and learning logic stay unchanged: this file
@@ -9,8 +9,18 @@
  * [style*="..."] selector, because those break silently on any JSX edit.
  */
 
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none;
+}
+
+button, [role="button"], a, input, select, textarea, .btn, .iconbtn, .hchip, .lcard, .wrow, .pb, .av, .chip {
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation;
+}
+
 @media (max-width: 600px) {
-  html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
+  html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; -webkit-tap-highlight-color: transparent !important; }
 
   header {
     box-sizing: border-box;

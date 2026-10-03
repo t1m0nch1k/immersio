@@ -29,6 +29,11 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.os.Build
+import android.content.Context
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.view.HapticFeedbackConstants
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -554,8 +559,90 @@ class MainActivity : ComponentActivity() {
         fun cancel() = runOnUiThread { tts?.stop() }
     }
 
+    private fun performHaptic(type: String) {
+        try {
+            val view = window?.decorView ?: root
+            val flag = HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+            when (type.lowercase()) {
+                "light", "click", "tap" -> {
+                    val performed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK, flag)
+                    } else {
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, flag)
+                    }
+                    if (!performed) {
+                        vibrateFallback(12, 70)
+                    }
+                }
+                "medium" -> {
+                    val performed = view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, flag)
+                    if (!performed) {
+                        vibrateFallback(22, 140)
+                    }
+                }
+                "success" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        view.performHapticFeedback(HapticFeedbackConstants.CONFIRM, flag)
+                    } else {
+                        vibratePatternFallback(longArrayOf(0, 16, 45, 20), intArrayOf(0, 120, 0, 200))
+                    }
+                }
+                "error", "warning" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        view.performHapticFeedback(HapticFeedbackConstants.REJECT, flag)
+                    } else {
+                        vibratePatternFallback(longArrayOf(0, 30, 50, 30), intArrayOf(0, 200, 0, 200))
+                    }
+                }
+                else -> {
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, flag)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Haptic feedback error: ${e.message}")
+        }
+    }
+
+    private fun getVibrator(): Vibrator? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val manager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            manager?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+    }
+
+    private fun vibrateFallback(durationMs: Long, amplitude: Int) {
+        val vibrator = getVibrator() ?: return
+        if (!vibrator.hasVibrator()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val amp = amplitude.coerceIn(1, 255)
+            vibrator.vibrate(VibrationEffect.createOneShot(durationMs, amp))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(durationMs)
+        }
+    }
+
+    private fun vibratePatternFallback(timings: LongArray, amplitudes: IntArray) {
+        val vibrator = getVibrator() ?: return
+        if (!vibrator.hasVibrator()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(timings, -1)
+        }
+    }
+
     /** Shell-side plumbing the web bundle asks for: external links, theming, and updates. */
     private inner class NativeHost {
+        @JavascriptInterface
+        fun vibrate(type: String) {
+            runOnUiThread { performHaptic(type) }
+        }
+
         @JavascriptInterface
         fun openExternal(url: String) {
             runOnUiThread { openExternally(Uri.parse(url)) }

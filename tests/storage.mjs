@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 
@@ -48,6 +48,7 @@ assert.deepEqual(initial, {
   currentLang: 'en',
   darkMode: false,
   soundEnabled: true,
+  hapticEnabled: true,
   account: { email: '', name: '', isAuth: false, tier: 'free' },
   languages: { en: api.getInitialProgress() },
   xp: 0,
@@ -69,7 +70,7 @@ assert.deepEqual(api.getInitialProgress(), {
   grammarProgress: {},
 });
 count += 2;
-assert.equal(Object.keys(initial).length, 14, 'UserState has exactly 14 known fields');
+assert.equal(Object.keys(initial).length, 15, 'UserState has exactly 15 known fields');
 assert.notEqual(api.getInitialState(), initial, 'every call returns a fresh object');
 assert.notEqual(api.getInitialState().languages.en, api.getInitialState().languages.en, 'progress is not shared between states');
 count += 3;
@@ -110,7 +111,7 @@ write({
 });
 const clean = load();
 assert.deepEqual(Object.keys(clean).sort(), [
-  'account', 'achievements', 'avatar', 'currentLang', 'customLessons', 'darkMode', 'history',
+  'account', 'achievements', 'avatar', 'currentLang', 'customLessons', 'darkMode', 'hapticEnabled', 'history',
   'languages', 'name', 'onboarded', 'perfectCount', 'soundEnabled', 'streak', 'xp',
 ].sort(), 'load() returns exactly the known UserState fields');
 assert.deepEqual(Object.keys(clean.languages), ['en'], 'an unsupported language code is dropped');

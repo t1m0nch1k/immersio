@@ -7,6 +7,7 @@ export interface AndroidHostInterface {
   reloadApp?: () => void;
   rollbackBundle?: () => void;
   downloadAndInstallApk?: (apkUrl: string, expectedSha256: string) => void;
+  vibrate?: (type: string) => void;
 }
 
 declare global {

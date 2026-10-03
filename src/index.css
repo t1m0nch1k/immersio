@@ -39,6 +39,7 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .lcard:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--ink); }
+.lcard:active { transform: translateY(2px) scale(0.96); box-shadow: 0 1px 0 var(--ink); transition: transform 0.08s ease, box-shadow 0.08s ease; }
 .lcard.sel { background: var(--sun); }
 .lcard .flag { font-size: 32px; line-height: 1.1; }
 .nameinput {
@@ -193,14 +194,22 @@
   --bg2: rgba(240, 244, 241, 0.12);
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none;
+}
+
+button, [role="button"], a, input, select, textarea {
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation;
 }
 
 html {
   scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent !important;
 }
 
 body {
@@ -387,16 +396,44 @@ header {
 
 .mark svg, .mark .ic { width: 20px; height: 20px; }
 
-.logo:hover .mark {
-  transform: rotate(-10deg) scale(1.08);
+.logo .mark,
+.drawer-brand .mark {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
 }
 
+.logo:hover .mark,
 .drawer-brand:hover .mark {
-  transform: rotate(-10deg) scale(1.08);
+  transform: rotate(-8deg) scale(1.08);
+  box-shadow: 0 4px 0 var(--ink);
 }
 
-.logo:hover .mark {
-  transform: rotate(-10deg) scale(1.08);
+.logo:active .mark,
+.drawer-brand:active .mark {
+  transform: translateY(2px) scale(0.94);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+/* Subtle ocean wave sway inside the mark */
+.mark svg path {
+  transition: transform 0.3s ease;
+}
+
+.logo:hover .mark svg path:nth-child(1),
+.drawer-brand:hover .mark svg path:nth-child(1) {
+  animation: waveSubtleSway 1.8s ease-in-out infinite alternate;
+}
+.logo:hover .mark svg path:nth-child(2),
+.drawer-brand:hover .mark svg path:nth-child(2) {
+  animation: waveSubtleSway 2.2s ease-in-out infinite alternate-reverse 0.2s;
+}
+.logo:hover .mark svg path:nth-child(3),
+.drawer-brand:hover .mark svg path:nth-child(3) {
+  animation: waveSubtleSway 2.6s ease-in-out infinite alternate 0.4s;
+}
+
+@keyframes waveSubtleSway {
+  0% { transform: translateX(-1.5px); }
+  100% { transform: translateX(1.5px); }
 }
 
 .hchip {
@@ -418,6 +455,11 @@ header {
 .hchip:hover {
   background: rgba(255, 255, 255, 0.22);
   transform: translateY(-2px);
+}
+
+.hchip:active {
+  transform: translateY(2px) scale(0.96);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .hchip b {
@@ -472,6 +514,12 @@ header {
 
 #avbtn:hover {
   transform: translateY(-2px) rotate(-6deg);
+}
+
+#avbtn:active {
+  transform: translateY(2px) scale(0.92);
+  box-shadow: 0 1px 0 var(--ink);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
 
 .hmenu {
@@ -613,6 +661,13 @@ header {
   overflow: hidden;
   flex-shrink: 0;
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.avatarbtn:active {
+  transform: translateY(2px) scale(0.92);
+  box-shadow: 0 1px 0 var(--ink);
+  transition: transform 0.08s ease;
 }
 
 .avatarbtn img { width: 100%; height: 100%; object-fit: cover; }
@@ -655,6 +710,18 @@ main {
 
 .view {
   max-width: 880px;
+  animation: viewEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes viewEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Cards & UI Panels */
@@ -739,6 +806,12 @@ nav.side {
 .nitem:hover {
   background: rgba(15, 61, 46, 0.08);
   transform: translateX(4px);
+}
+
+.nitem:active {
+  transform: translateX(2px) scale(0.97);
+  background: rgba(15, 61, 46, 0.15);
+  transition: transform 0.08s ease;
 }
 
 .nitem.active {
@@ -907,8 +980,9 @@ nav.side {
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(2px);
+  transform: translateY(2px) scale(0.97);
   box-shadow: 0 1px 0 var(--ink);
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.08s ease;
 }
 
 .btn.sun {
@@ -976,6 +1050,12 @@ nav.side {
   transform: translateY(-2px) scale(1.06);
   background: var(--sun);
   color: #1b2a23;
+}
+
+.iconbtn:active {
+  transform: translateY(2px) scale(0.92);
+  box-shadow: 0 0 0 var(--ink);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
 
 /* The header buttons carry a glyph rather than a font character, so the old
@@ -1384,6 +1464,18 @@ header .iconbtn .ic {
   box-shadow: 0 3px 0 var(--shadow-color);
 }
 
+.tk:active {
+  transform: scale(0.92);
+  opacity: 0.85;
+  transition: transform 0.06s ease;
+}
+
+.tk.new:active {
+  transform: translateY(1px) scale(0.92);
+  box-shadow: 0 1px 0 var(--shadow-color);
+  transition: transform 0.06s ease;
+}
+
 .tk.known {
   color: var(--pine);
   border-bottom: 2.5px solid var(--sea);
@@ -1710,6 +1802,12 @@ header .iconbtn .ic {
   transform: translateY(-2px);
 }
 
+.pb:active:not(.done) {
+  transform: translateY(2px) scale(0.96);
+  box-shadow: 0 1px 0 var(--ink);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
 .pb.done {
   background: #d9f2e4;
   border-color: var(--sea);
@@ -1775,6 +1873,11 @@ header .iconbtn .ic {
   transform: translateY(-2px);
 }
 
+.catchip:active {
+  transform: translateY(2px) scale(0.96);
+  transition: transform 0.08s ease;
+}
+
 .catchip.on {
   background: var(--pine);
   color: #f3efe2;
@@ -1788,10 +1891,16 @@ header .iconbtn .ic {
   border-top: 2px dashed var(--line);
   animation: pop-in 0.3s both;
   animation-delay: var(--d, 0s);
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
 .wrow:hover {
   background: rgba(255, 212, 59, 0.12);
+}
+
+.wrow:active {
+  transform: scale(0.99);
+  background: rgba(255, 212, 59, 0.22);
 }
 
 .wrow .fw {
@@ -2024,17 +2133,29 @@ header .iconbtn .ic {
   box-shadow: 0 3px 0 var(--ink);
 }
 
+.av:active {
+  transform: translateY(2px) scale(0.9);
+  transition: transform 0.08s ease;
+}
+
 /* Modals & Overlays */
 .ovl {
   position: fixed;
   inset: 0;
   background: rgba(11, 45, 34, 0.88);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 150;
   display: grid;
   place-items: center;
   padding: 20px;
   overflow: auto;
+  animation: ovlFadeIn 0.22s ease-out both;
+}
+
+@keyframes ovlFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .dlg {
@@ -2045,9 +2166,20 @@ header .iconbtn .ic {
   width: 100%;
   padding: 32px;
   box-shadow: 0 16px 0 rgba(0, 0, 0, 0.4);
-  animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: dlgPopIn 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) both;
   position: relative;
   color: var(--ink);
+}
+
+@keyframes dlgPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* Was an inline style; promoted so the glyph inside can be sized. */
@@ -2872,4 +3004,236 @@ header .iconbtn .ic {
   .listening-filters { justify-content: flex-start; }
   .listening-grid { grid-template-columns: 1fr; }
   .listening-method-steps { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================================
+   Splash Launch Screen & Organic Sea Wave Motion
+   ========================================================================== */
+
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+  color: var(--ink);
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.45s cubic-bezier(0.2, 0.9, 0.3, 1), transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1), filter 0.45s ease;
+}
+
+.splash-screen-exit {
+  opacity: 0;
+  transform: scale(1.05);
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+.splash-ambient-glow {
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(14, 138, 109, 0.14) 0%, rgba(255, 212, 59, 0.08) 45%, transparent 70%);
+  pointer-events: none;
+  animation: splashGlowPulse 4s ease-in-out infinite alternate;
+}
+
+@keyframes splashGlowPulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  100% { transform: scale(1.15); opacity: 1; }
+}
+
+.splash-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  z-index: 1;
+}
+
+/* Concentric expanding ripples around the floating buoy mark */
+.splash-ripple {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  width: 96px;
+  height: 96px;
+  border-radius: 36px;
+  border: 2px solid var(--sea);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-ripple-1 {
+  animation: splashRipple 2.6s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+.splash-ripple-2 {
+  animation: splashRipple 2.6s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 1.3s;
+}
+
+@keyframes splashRipple {
+  0% {
+    opacity: 0.65;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.2);
+  }
+}
+
+/* The Brand Mark Floating Buoy */
+.splash-mark {
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  background: var(--sun);
+  border: 3.5px solid var(--ink);
+  box-shadow: 0 10px 0 var(--ink);
+  display: grid;
+  place-items: center;
+  color: #1b2a23;
+  animation: splashBuoyFloat 3.2s ease-in-out infinite alternate;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes splashBuoyFloat {
+  0% {
+    transform: translateY(0) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(1.8deg);
+  }
+  100% {
+    transform: translateY(0) rotate(-1.5deg);
+  }
+}
+
+.splash-waves-svg {
+  width: 72px;
+  height: 72px;
+  display: block;
+}
+
+/* The 3 undulating ocean waves */
+.splash-wave {
+  color: #1b2a23;
+}
+
+.splash-wave-top {
+  animation: waveFlowTop 2.2s ease-in-out infinite alternate;
+}
+
+.splash-wave-mid {
+  animation: waveFlowMid 2.6s ease-in-out infinite alternate 0.35s;
+}
+
+.splash-wave-bot {
+  animation: waveFlowBot 3.0s ease-in-out infinite alternate 0.7s;
+}
+
+@keyframes waveFlowTop {
+  0% {
+    transform: translateX(-16px) translateY(-1.5px);
+  }
+  100% {
+    transform: translateX(16px) translateY(1.5px);
+  }
+}
+
+@keyframes waveFlowMid {
+  0% {
+    transform: translateX(18px) translateY(1.5px);
+  }
+  100% {
+    transform: translateX(-18px) translateY(-1px);
+  }
+}
+
+@keyframes waveFlowBot {
+  0% {
+    transform: translateX(-14px) translateY(-1px);
+  }
+  100% {
+    transform: translateX(14px) translateY(1.2px);
+  }
+}
+
+.splash-brand {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.splash-title {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  margin: 0;
+  color: var(--ink);
+  animation: splashFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.splash-subtitle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink2);
+  margin: 0;
+  letter-spacing: 0.02em;
+  animation: splashFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}
+
+@keyframes splashFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.splash-loader {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.splash-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sea);
+  animation: splashDotPulse 1.2s ease-in-out infinite alternate;
+}
+
+.splash-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.splash-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes splashDotPulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
 }

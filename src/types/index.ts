@@ -216,6 +216,7 @@ export interface UserState {
   currentLang: LanguageCode;
   darkMode: boolean;
   soundEnabled: boolean;
+  hapticEnabled: boolean;
   account: UserAccount;
   languages: Partial<Record<LanguageCode, UserLanguageProgress>>;
   xp: number;

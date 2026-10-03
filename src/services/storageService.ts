@@ -118,6 +118,7 @@ export function getInitialState(): UserState {
     currentLang: 'en',
     darkMode: false,
     soundEnabled: true,
+    hapticEnabled: true,
     account: {
       email: '',
       name: '',
@@ -308,6 +309,7 @@ export class StorageService {
           : initial.currentLang,
         darkMode,
         soundEnabled: typeof soundEnabled === 'boolean' ? soundEnabled : initial.soundEnabled,
+        hapticEnabled: typeof parsed.hapticEnabled === 'boolean' ? parsed.hapticEnabled : initial.hapticEnabled,
         account: {
           email: typeof parsedAccount.email === 'string' ? parsedAccount.email : initial.account.email,
           name: typeof parsedAccount.name === 'string' ? parsedAccount.name : initial.account.name,

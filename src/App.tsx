@@ -24,6 +24,8 @@ import { WordCardModal } from './components/WordCardModal';
 import { AuthModal } from './components/AuthModal';
 import { UpdateModal } from './components/UpdateModal';
 import { UpdateService, UpdateCheckResult } from './services/updateService';
+import { SplashScreen } from './components/SplashScreen';
+import { hapticService } from './services/hapticService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Route } from './routes';
 
@@ -99,6 +101,19 @@ export const App: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
+  const [showSplash, setShowSplash] = useState<boolean>(() => {
+    try {
+      return !sessionStorage.getItem('pogruzhenie_splash_seen');
+    } catch {
+      return true;
+    }
+  });
+
+  // Haptic feedback initialization and sync
+  useEffect(() => {
+    hapticService.initHapticListeners();
+    hapticService.setEnabled(userState.hapticEnabled !== false);
+  }, [userState.hapticEnabled]);
 
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -650,6 +665,20 @@ export const App: React.FC = () => {
 
       {/* Toast Notification */}
       {toastMessage && <div className="toast" role="status" aria-live="polite">{toastMessage}</div>}
+
+      {/* Animated Wave Splash Screen */}
+      {showSplash && (
+        <SplashScreen
+          onFinish={() => {
+            setShowSplash(false);
+            try {
+              sessionStorage.setItem('pogruzhenie_splash_seen', '1');
+            } catch {
+              // Ignore session storage errors
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

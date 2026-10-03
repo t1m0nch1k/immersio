@@ -10,6 +10,7 @@ import { WORDS_BY_LEVEL } from '../utils/words';
 import { fileToAvatarDataUrl, isAvatarPhoto } from '../utils/avatar';
 import { toastService } from '../services/toastService';
 import { getAppVersionInfo, UpdateService } from '../services/updateService';
+import { hapticService } from '../services/hapticService';
 import { Icon } from './icons';
 import { SyncPanel } from './SyncPanel';
 
@@ -252,11 +253,12 @@ const SettingsPanel = React.memo<{
   onSelectAvatar: (avatar: string) => void;
   onPickPhoto: (file: File | null, input: HTMLInputElement) => void;
   onClearPhoto: () => void;
+  onToggleHaptic: (enabled: boolean) => void;
 
   onSelectLang: (code: LanguageCode) => void;
   onRetakeTest: () => void;
   onResetProgress: () => void;
-}>(({ userState, onSelectAvatar, onPickPhoto, onClearPhoto, onSelectLang, onRetakeTest, onResetProgress }) => (
+}>(({ userState, onSelectAvatar, onPickPhoto, onClearPhoto, onToggleHaptic, onSelectLang, onRetakeTest, onResetProgress }) => (
   <div className="card" style={{ marginTop: '16px' }}>
     <h3 style={{ fontSize: '16px', marginBottom: '12px' }}>Настройки профиля</h3>
 
@@ -314,6 +316,38 @@ const SettingsPanel = React.memo<{
           </button>
         );
       })}
+    </div>
+
+    <div className="overline" style={{ marginTop: '18px' }}>
+      Интерфейс и отклик
+    </div>
+    <div
+      style={{
+        marginTop: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 14px',
+        background: 'var(--paper)',
+        borderRadius: '14px',
+        border: '1.5px solid var(--line)',
+        gap: '12px',
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 700, fontSize: '14.5px' }}>Вибрация при нажатии</div>
+        <div style={{ fontSize: '12.5px', color: 'var(--ink2)', marginTop: '2px' }}>
+          Лёгкий тактильный отклик кнопок, карточек и упражнений
+        </div>
+      </div>
+      <button
+        type="button"
+        className={`btn small ${userState.hapticEnabled !== false ? 'sun' : ''}`}
+        onClick={() => onToggleHaptic(userState.hapticEnabled === false)}
+        style={{ minWidth: '76px', fontWeight: 800 }}
+      >
+        {userState.hapticEnabled !== false ? 'ВКЛ' : 'ВЫКЛ'}
+      </button>
     </div>
 
     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px' }}>
@@ -453,6 +487,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     onUpdateState({ ...userState });
   }, [userState, onUpdateState]);
 
+  const handleToggleHaptic = useCallback((enabled: boolean) => {
+    hapticService.setEnabled(enabled);
+    if (enabled) {
+      hapticService.trigger('medium');
+    }
+    userState.hapticEnabled = enabled;
+    StorageService.save(userState);
+    onUpdateState({ ...userState });
+  }, [userState, onUpdateState]);
+
 
   return (
     <div className="view">
@@ -503,7 +547,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         onSelectAvatar={handleSelectAvatar}
         onPickPhoto={handlePickPhoto}
         onClearPhoto={handleClearPhoto}
-
+        onToggleHaptic={handleToggleHaptic}
         onSelectLang={handleSelectLang}
         onRetakeTest={onRetakeTest}
         onResetProgress={onResetProgress}
