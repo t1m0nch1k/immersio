@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
     private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
     private var pendingPermissionRequest: PermissionRequest? = null
     private val AUDIO_PERMISSION_REQUEST = 2002
+    private val NOTIFICATION_PERMISSION_REQUEST = 2003
     private var pendingAuthResult: String? = null
     private var pendingAuthDelivered = false
 
@@ -507,6 +508,9 @@ class MainActivity : ComponentActivity() {
             } else {
                 pending.deny()
             }
+        } else if (requestCode == NOTIFICATION_PERMISSION_REQUEST) {
+            val granted = grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+            Log.i(TAG, "Notification permission result: granted=$granted")
         }
     }
 
@@ -651,6 +655,41 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface
         fun setTheme(dark: Boolean) {
             runOnUiThread { applyTheme(dark) }
+        }
+
+        @JavascriptInterface
+        fun scheduleReminder(enabled: Boolean, hour: Int, minute: Int) {
+            runOnUiThread {
+                if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST)
+                    }
+                }
+                if (enabled) {
+                    ReminderReceiver.scheduleDailyAlarm(this@MainActivity, hour, minute)
+                } else {
+                    ReminderReceiver.cancelDailyAlarm(this@MainActivity)
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun sendTestReminder() {
+            runOnUiThread {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST)
+                    }
+                }
+                ReminderReceiver.showReminderNotification(this@MainActivity)
+            }
+        }
+
+        @JavascriptInterface
+        fun updateStreakWidget(streak: Int, todayDone: Boolean) {
+            runOnUiThread {
+                StreakWidgetProvider.updateAllWidgets(this@MainActivity, streak, todayDone)
+            }
         }
 
         /**

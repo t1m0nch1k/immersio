@@ -4,6 +4,7 @@ import { LANGUAGES } from '../data/languages';
 import { StorageService } from '../services/storageService';
 import { audioService } from '../services/audioService';
 import { DailyPlanCard } from './DailyPlanCard';
+import { StreakFlameWidget } from './StreakFlameWidget';
 import { ListeningTodayCard } from './ListeningTodayCard';
 import { Route } from '../routes';
 import { Icon } from './icons';
@@ -78,6 +79,13 @@ export const LessonList: React.FC<LessonListProps> = ({
       <p className="sub">
         Читай живые тексты с понятными опорами. Система считает долю каждого видимого слова, равномерно добавляет знакомые конструкции и не выдаёт целевой процент за фактический.
       </p>
+
+      <StreakFlameWidget
+        userState={userState}
+        onNavigate={onNavigate}
+        onOpenLesson={onOpenLesson}
+        nextLessonId={nextLesson?.id}
+      />
 
       <DailyPlanCard
         userState={userState}

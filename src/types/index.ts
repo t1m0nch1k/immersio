@@ -217,6 +217,8 @@ export interface UserState {
   darkMode: boolean;
   soundEnabled: boolean;
   hapticEnabled: boolean;
+  reminderEnabled: boolean;
+  reminderTime: string;
   account: UserAccount;
   languages: Partial<Record<LanguageCode, UserLanguageProgress>>;
   xp: number;

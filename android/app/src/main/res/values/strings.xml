@@ -6,4 +6,9 @@
     <string name="error_retry">Перезагрузить</string>
     <string name="action_ok">ОК</string>
     <string name="action_cancel">Отмена</string>
+    <string name="widget_streak_description">Огонёк ударного режима и статус дня</string>
+    <string name="notification_channel_name">Напоминания об уроках</string>
+    <string name="notification_channel_desc">Ежедневные уведомления для сохранения ударного режима</string>
+    <string name="reminder_title">🔥 Время для Погружения!</string>
+    <string name="reminder_text">Сохрани свою ударную серию — пройди короткий урок сегодня!</string>
 </resources>

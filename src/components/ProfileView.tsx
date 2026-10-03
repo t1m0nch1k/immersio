@@ -11,6 +11,7 @@ import { fileToAvatarDataUrl, isAvatarPhoto } from '../utils/avatar';
 import { toastService } from '../services/toastService';
 import { getAppVersionInfo, UpdateService } from '../services/updateService';
 import { hapticService } from '../services/hapticService';
+import { reminderService } from '../services/reminderService';
 import { Icon } from './icons';
 import { SyncPanel } from './SyncPanel';
 
@@ -254,11 +255,14 @@ const SettingsPanel = React.memo<{
   onPickPhoto: (file: File | null, input: HTMLInputElement) => void;
   onClearPhoto: () => void;
   onToggleHaptic: (enabled: boolean) => void;
+  onToggleReminder: (enabled: boolean) => void;
+  onSetReminderTime: (time: string) => void;
+  onTestReminder: () => void;
 
   onSelectLang: (code: LanguageCode) => void;
   onRetakeTest: () => void;
   onResetProgress: () => void;
-}>(({ userState, onSelectAvatar, onPickPhoto, onClearPhoto, onToggleHaptic, onSelectLang, onRetakeTest, onResetProgress }) => (
+}>(({ userState, onSelectAvatar, onPickPhoto, onClearPhoto, onToggleHaptic, onToggleReminder, onSetReminderTime, onTestReminder, onSelectLang, onRetakeTest, onResetProgress }) => (
   <div className="card" style={{ marginTop: '16px' }}>
     <h3 style={{ fontSize: '16px', marginBottom: '12px' }}>Настройки профиля</h3>
 
@@ -349,6 +353,82 @@ const SettingsPanel = React.memo<{
         {userState.hapticEnabled !== false ? 'ВКЛ' : 'ВЫКЛ'}
       </button>
     </div>
+
+    <div className="overline" style={{ marginTop: '18px' }}>
+      Напоминания об уроках
+    </div>
+    <div
+      style={{
+        marginTop: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 14px',
+        background: 'var(--paper)',
+        borderRadius: '14px',
+        border: '1.5px solid var(--line)',
+        gap: '12px',
+        flexWrap: 'wrap',
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 700, fontSize: '14.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>⏰</span> Ежедневное напоминание
+        </div>
+        <div style={{ fontSize: '12.5px', color: 'var(--ink2)', marginTop: '2px' }}>
+          Напомнить зайти в урок и сохранить огонёк серии
+        </div>
+      </div>
+      <button
+        type="button"
+        className={`btn small ${userState.reminderEnabled !== false ? 'sun' : ''}`}
+        onClick={() => onToggleReminder(userState.reminderEnabled === false)}
+        style={{ minWidth: '76px', fontWeight: 800 }}
+      >
+        {userState.reminderEnabled !== false ? 'ВКЛ' : 'ВЫКЛ'}
+      </button>
+    </div>
+
+    {userState.reminderEnabled !== false && (
+      <div
+        style={{
+          marginTop: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px',
+          padding: '10px 14px',
+          background: 'var(--paper)',
+          borderRadius: '14px',
+          border: '1.5px solid var(--line)',
+        }}
+      >
+        <div style={{ fontSize: '13px', fontWeight: 700 }}>Время напоминания:</div>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {['18:00', '19:00', '20:00', '21:00'].map((timeOption) => (
+            <button
+              key={timeOption}
+              type="button"
+              className={`btn small ${userState.reminderTime === timeOption ? 'pine' : ''}`}
+              style={{ padding: '4px 10px', fontSize: '12px' }}
+              onClick={() => onSetReminderTime(timeOption)}
+            >
+              {timeOption}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="btn small"
+            style={{ padding: '4px 10px', fontSize: '12px' }}
+            onClick={onTestReminder}
+            title="Отправить тестовое уведомление"
+          >
+            🔔 Тест
+          </button>
+        </div>
+      </div>
+    )}
 
     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px' }}>
       <button className="btn small" type="button" onClick={onRetakeTest}>
@@ -497,6 +577,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     onUpdateState({ ...userState });
   }, [userState, onUpdateState]);
 
+  const handleToggleReminder = useCallback((enabled: boolean) => {
+    audioService.playClick();
+    hapticService.trigger('light');
+    userState.reminderEnabled = enabled;
+    reminderService.syncReminder(enabled, userState.reminderTime);
+    StorageService.save(userState);
+    onUpdateState({ ...userState });
+  }, [userState, onUpdateState]);
+
+  const handleSetReminderTime = useCallback((time: string) => {
+    audioService.playClick();
+    hapticService.trigger('light');
+    userState.reminderTime = time;
+    if (userState.reminderEnabled) {
+      reminderService.syncReminder(true, time);
+    }
+    StorageService.save(userState);
+    onUpdateState({ ...userState });
+  }, [userState, onUpdateState]);
+
+  const handleTestReminder = useCallback(() => {
+    audioService.playClick();
+    hapticService.trigger('medium');
+    reminderService.sendTestNotification();
+  }, []);
+
 
   return (
     <div className="view">
@@ -548,6 +654,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         onPickPhoto={handlePickPhoto}
         onClearPhoto={handleClearPhoto}
         onToggleHaptic={handleToggleHaptic}
+        onToggleReminder={handleToggleReminder}
+        onSetReminderTime={handleSetReminderTime}
+        onTestReminder={handleTestReminder}
         onSelectLang={handleSelectLang}
         onRetakeTest={onRetakeTest}
         onResetProgress={onResetProgress}

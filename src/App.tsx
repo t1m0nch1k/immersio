@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { UserState, Word, Lesson, LanguageCode } from './types';
 import { LESSONS } from './data/lessons';
 import { LANGUAGES } from './data/languages';
-import { StorageService } from './services/storageService';
+import { StorageService, getLocalDateKey } from './services/storageService';
 import { noteManualImmersion } from './services/immersionProfile';
 import { audioService } from './services/audioService';
 import { toastService } from './services/toastService';
@@ -26,6 +26,7 @@ import { UpdateModal } from './components/UpdateModal';
 import { UpdateService, UpdateCheckResult } from './services/updateService';
 import { SplashScreen } from './components/SplashScreen';
 import { hapticService } from './services/hapticService';
+import { reminderService } from './services/reminderService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Route } from './routes';
 
@@ -114,6 +115,20 @@ export const App: React.FC = () => {
     hapticService.initHapticListeners();
     hapticService.setEnabled(userState.hapticEnabled !== false);
   }, [userState.hapticEnabled]);
+
+  // Daily reminder sync with native shell or web
+  useEffect(() => {
+    reminderService.syncReminder(userState.reminderEnabled !== false, userState.reminderTime || '20:00');
+  }, [userState.reminderEnabled, userState.reminderTime]);
+
+  // Sync streak state with Android Home Screen AppWidget
+  useEffect(() => {
+    const todayKey = getLocalDateKey();
+    const isDoneToday = userState.streak.lastActiveDate === todayKey;
+    if (window.AndroidHost?.updateStreakWidget) {
+      window.AndroidHost.updateStreakWidget(userState.streak.current, isDoneToday);
+    }
+  }, [userState.streak]);
 
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);

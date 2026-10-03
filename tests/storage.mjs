@@ -49,6 +49,8 @@ assert.deepEqual(initial, {
   darkMode: false,
   soundEnabled: true,
   hapticEnabled: true,
+  reminderEnabled: true,
+  reminderTime: '20:00',
   account: { email: '', name: '', isAuth: false, tier: 'free' },
   languages: { en: api.getInitialProgress() },
   xp: 0,
@@ -70,7 +72,7 @@ assert.deepEqual(api.getInitialProgress(), {
   grammarProgress: {},
 });
 count += 2;
-assert.equal(Object.keys(initial).length, 15, 'UserState has exactly 15 known fields');
+assert.equal(Object.keys(initial).length, 17, 'UserState has exactly 17 known fields');
 assert.notEqual(api.getInitialState(), initial, 'every call returns a fresh object');
 assert.notEqual(api.getInitialState().languages.en, api.getInitialState().languages.en, 'progress is not shared between states');
 count += 3;
@@ -112,7 +114,7 @@ write({
 const clean = load();
 assert.deepEqual(Object.keys(clean).sort(), [
   'account', 'achievements', 'avatar', 'currentLang', 'customLessons', 'darkMode', 'hapticEnabled', 'history',
-  'languages', 'name', 'onboarded', 'perfectCount', 'soundEnabled', 'streak', 'xp',
+  'languages', 'name', 'onboarded', 'perfectCount', 'reminderEnabled', 'reminderTime', 'soundEnabled', 'streak', 'xp',
 ].sort(), 'load() returns exactly the known UserState fields');
 assert.deepEqual(Object.keys(clean.languages), ['en'], 'an unsupported language code is dropped');
 assert.deepEqual(Object.keys(clean.languages.en).sort(), [

@@ -8,6 +8,9 @@ export interface AndroidHostInterface {
   rollbackBundle?: () => void;
   downloadAndInstallApk?: (apkUrl: string, expectedSha256: string) => void;
   vibrate?: (type: string) => void;
+  scheduleReminder?: (enabled: boolean, hour: number, minute: number) => void;
+  sendTestReminder?: () => void;
+  updateStreakWidget?: (streak: number, todayDone: boolean) => void;
 }
 
 declare global {

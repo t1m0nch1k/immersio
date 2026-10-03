@@ -119,6 +119,8 @@ export function getInitialState(): UserState {
     darkMode: false,
     soundEnabled: true,
     hapticEnabled: true,
+    reminderEnabled: true,
+    reminderTime: '20:00',
     account: {
       email: '',
       name: '',
@@ -310,6 +312,8 @@ export class StorageService {
         darkMode,
         soundEnabled: typeof soundEnabled === 'boolean' ? soundEnabled : initial.soundEnabled,
         hapticEnabled: typeof parsed.hapticEnabled === 'boolean' ? parsed.hapticEnabled : initial.hapticEnabled,
+        reminderEnabled: typeof parsed.reminderEnabled === 'boolean' ? parsed.reminderEnabled : initial.reminderEnabled,
+        reminderTime: typeof parsed.reminderTime === 'string' && /^\d{2}:\d{2}$/.test(parsed.reminderTime) ? parsed.reminderTime : initial.reminderTime,
         account: {
           email: typeof parsedAccount.email === 'string' ? parsedAccount.email : initial.account.email,
           name: typeof parsedAccount.name === 'string' ? parsedAccount.name : initial.account.name,
