@@ -18,6 +18,8 @@ interface HeaderProps {
   onOpenAuth: () => void;
   hasUpdate?: boolean;
   onOpenUpdates?: () => void;
+  canGoBack?: boolean;
+  onGoBack?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,6 +32,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuth,
   hasUpdate,
   onOpenUpdates,
+  canGoBack,
+  onGoBack,
 }) => {
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const langPickerRef = useRef<HTMLDivElement>(null);
@@ -74,6 +78,24 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header>
+      {canGoBack && onGoBack && (
+        <button
+          type="button"
+          className="header-back-btn"
+          onClick={() => {
+            audioService.playClick();
+            onGoBack();
+          }}
+          title="Назад"
+          aria-label="Вернуться назад"
+        >
+          <span className="mark back-mark" aria-hidden="true">
+            <Icon name="chevron-left" strokeWidth={2.8} />
+          </span>
+          <span className="header-back-text">Назад</span>
+        </button>
+      )}
+
       {/*
         The logo is the only control and it opens the menu. A separate burger
         button cost another 36px in a header that was already the widest part of

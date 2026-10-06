@@ -19,6 +19,7 @@ interface ListeningViewProps {
   userState: UserState;
   onUpdateState: (newState: UserState) => void;
   onNavigate: (route: Route) => void;
+  onGoBack?: () => void;
 }
 
 type ListeningFilter = 'all' | 'audio' | 'video' | 'series' | 'audiobook';
@@ -39,7 +40,12 @@ const formatTime = (seconds: number): string => {
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
 };
 
-export const ListeningView: React.FC<ListeningViewProps> = ({ userState, onUpdateState, onNavigate }) => {
+export const ListeningView: React.FC<ListeningViewProps> = ({
+  userState,
+  onUpdateState,
+  onNavigate,
+  onGoBack,
+}) => {
   const currentLang: LanguageCode = userState.currentLang;
   const language = LANGUAGES[currentLang] || LANGUAGES.en;
   const items = LISTENING_LIBRARY[currentLang] || LISTENING_LIBRARY.en;
@@ -133,6 +139,17 @@ export const ListeningView: React.FC<ListeningViewProps> = ({ userState, onUpdat
 
   return (
     <div className="view listening-view">
+      <button
+        className="backlink"
+        type="button"
+        onClick={() => {
+          audioService.playClick();
+          if (onGoBack) onGoBack();
+          else onNavigate('lessons');
+        }}
+      >
+        <Icon name="chevron-left" className="sm" /> Назад
+      </button>
       <div className="overline">новый режим · {language.flag} {language.name}</div>
       <h1 className="display">Слушание на сегодня</h1>
       <p className="sub">

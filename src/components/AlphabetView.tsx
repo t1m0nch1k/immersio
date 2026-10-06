@@ -10,9 +10,10 @@ import { Icon } from './icons';
 interface AlphabetViewProps {
   userState: UserState;
   onNavigate: (route: Route) => void;
+  onGoBack?: () => void;
 }
 
-export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigate }) => {
+export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigate, onGoBack }) => {
   const currentLang = userState.currentLang;
   const language = LANGUAGES[currentLang] || LANGUAGES.en;
   const alphabet = ALPHABETS[currentLang] || ALPHABETS.en;
@@ -34,6 +35,17 @@ export const AlphabetView: React.FC<AlphabetViewProps> = ({ userState, onNavigat
 
   return (
     <div className="view">
+      <button
+        className="backlink"
+        type="button"
+        onClick={() => {
+          audioService.playClick();
+          if (onGoBack) onGoBack();
+          else onNavigate('lessons');
+        }}
+      >
+        <Icon name="chevron-left" className="sm" /> Назад
+      </button>
       <div className="overline">{language.flag} {language.name} · справочник</div>
       <h1 className="display">{alphabet.title}</h1>
       <p className="sub">{alphabet.note}</p>

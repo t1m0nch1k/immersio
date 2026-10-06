@@ -14,6 +14,7 @@ import { hapticService } from '../services/hapticService';
 import { reminderService } from '../services/reminderService';
 import { Icon, IconName } from './icons';
 import { SyncPanel } from './SyncPanel';
+import { Route } from '../routes';
 
 interface ProfileViewProps {
   userState: UserState;
@@ -23,6 +24,8 @@ interface ProfileViewProps {
   onOpenAuth: () => void;
   onSignOut: () => void;
   onCheckUpdates?: () => void;
+  onGoBack?: () => void;
+  onNavigate?: (route: Route) => void;
 }
 
 const LEVELS = [1, 2, 3, 4] as const;
@@ -508,6 +511,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenAuth,
   onSignOut,
   onCheckUpdates,
+  onGoBack,
+  onNavigate,
 }) => {
   const { currentRank, nextRank, nextXp } = StorageService.getRank(userState.xp);
   const xpPct = nextRank ? Math.min(100, Math.round((userState.xp / nextXp) * 100)) : 100;
@@ -612,6 +617,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <div className="view">
+      <button
+        className="backlink"
+        type="button"
+        onClick={() => {
+          audioService.playClick();
+          if (onGoBack) onGoBack();
+          else onNavigate?.('lessons');
+        }}
+      >
+        <Icon name="chevron-left" className="sm" /> Назад
+      </button>
       <div className="overline">личный профиль</div>
       <h1 className="display">Профиль ученика</h1>
 

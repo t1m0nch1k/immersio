@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { UserState } from '../types';
 import { LANGUAGES } from '../data/languages';
 import { GRAMMAR } from '../data/grammar';
@@ -14,11 +14,19 @@ interface GrammarViewProps {
   userState: UserState;
   onNavigate: (route: Route) => void;
   onUpdateState: (state: UserState) => void;
+  onGoBack?: () => void;
+  onRegisterBackHandler?: (handler: () => boolean) => () => void;
 }
 
 const LEVEL_FILTER_LABELS = ['Все уровни', ...LEVEL_LABELS];
 
-export const GrammarView: React.FC<GrammarViewProps> = ({ userState, onNavigate, onUpdateState }) => {
+export const GrammarView: React.FC<GrammarViewProps> = ({
+  userState,
+  onNavigate,
+  onUpdateState,
+  onGoBack,
+  onRegisterBackHandler,
+}) => {
   const [openLesson, setOpenLesson] = useState<string | null>(null);
   const [active, setActive] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
@@ -53,10 +61,30 @@ export const GrammarView: React.FC<GrammarViewProps> = ({ userState, onNavigate,
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  useEffect(() => {
+    if (!active) return undefined;
+    return onRegisterBackHandler?.(() => {
+      audioService.playClick();
+      setActive(null);
+      return true;
+    });
+  }, [active, onRegisterBackHandler]);
+
   if (selectedLesson) return <div className="view"><GrammarTrainer key={currentLang + ':' + selectedLesson.id} lesson={selectedLesson}
     userState={userState} onUpdateState={onUpdateState} onClose={() => setActive(null)} /></div>;
 
   return <div className="view">
+    <button
+      className="backlink"
+      type="button"
+      onClick={() => {
+        audioService.playClick();
+        if (onGoBack) onGoBack();
+        else onNavigate('lessons');
+      }}
+    >
+      <Icon name="chevron-left" className="sm" /> Назад
+    </button>
     <div className="overline">{language.flag} {language.name} · грамматика</div>
     <h1 className="display">От правила к своей фразе</h1>
     <p className="sub">Разбери пример, собери предложение, восстанови пропуск и напиши без опоры. В уроках конструктора — ещё и измени лицо, время или тип фразы.</p>

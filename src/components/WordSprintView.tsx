@@ -17,6 +17,7 @@ interface WordSprintViewProps {
   userState: UserState;
   onUpdateState: (newState: UserState) => void;
   onNavigate: (route: Route) => void;
+  onGoBack?: () => void;
 }
 
 type AnswerState = { choice: string; correct: boolean } | null;
@@ -25,7 +26,12 @@ type AnswerState = { choice: string; correct: boolean } | null;
 const OPTION_DISTRACTORS = 3;
 const ROUND_SECONDS = 60;
 
-export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpdateState, onNavigate }) => {
+export const WordSprintView: React.FC<WordSprintViewProps> = ({
+  userState,
+  onUpdateState,
+  onNavigate,
+  onGoBack,
+}) => {
   const currentLang: LanguageCode = userState.currentLang;
   const language = LANGUAGES[currentLang] || LANGUAGES.en;
   const progress = StorageService.getLangProgress(userState, currentLang);
@@ -162,7 +168,17 @@ export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpd
   if (queue.length === 0) {
     return (
       <div className="view">
-        <button className="backlink" onClick={() => onNavigate('practice')}>← Назад в практику</button>
+        <button
+          className="backlink"
+          type="button"
+          onClick={() => {
+            audioService.playClick();
+            if (onGoBack) onGoBack();
+            else onNavigate('practice');
+          }}
+        >
+          <Icon name="chevron-left" className="sm" /> Назад
+        </button>
         <div className="card emptybox">
           <span className="big"><Icon name="book-open" size={40} /></span>
           <h3>Словарь пока пуст</h3>
@@ -174,7 +190,17 @@ export const WordSprintView: React.FC<WordSprintViewProps> = ({ userState, onUpd
 
   return (
     <div className="view sprint-view">
-      <button className="backlink" onClick={() => onNavigate('practice')}>← Назад в практику</button>
+      <button
+        className="backlink"
+        type="button"
+        onClick={() => {
+          audioService.playClick();
+          if (onGoBack) onGoBack();
+          else onNavigate('practice');
+        }}
+      >
+        <Icon name="chevron-left" className="sm" /> Назад
+      </button>
       <div className="overline" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
         <Icon name="bolt" className="sm" /> новый режим · {language.name}
       </div>

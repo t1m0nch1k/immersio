@@ -12,6 +12,7 @@ interface DictViewProps {
   userState: UserState;
   showAllWords?: boolean;
   onNavigate: (route: Route) => void;
+  onGoBack?: () => void;
   onLearnWord: (wordId: string) => void;
   onForgetWord: (wordId: string) => void;
 }
@@ -29,6 +30,7 @@ export const DictView: React.FC<DictViewProps> = ({
   userState,
   showAllWords = false,
   onNavigate,
+  onGoBack,
   onLearnWord,
   onForgetWord,
 }) => {
@@ -99,6 +101,17 @@ export const DictView: React.FC<DictViewProps> = ({
 
   return (
     <div className="view">
+      <button
+        className="backlink"
+        type="button"
+        onClick={() => {
+          audioService.playClick();
+          if (onGoBack) onGoBack();
+          else onNavigate('lessons');
+        }}
+      >
+        <Icon name="chevron-left" className="sm" /> Назад
+      </button>
       <div className="overline">
         {currentLangObj.flag} {currentLangObj.name}
       </div>

@@ -18,6 +18,8 @@ interface PracticeViewProps {
   userState: UserState;
   onUpdateState: (newState: UserState) => void;
   onNavigate: (route: Route) => void;
+  onGoBack?: () => void;
+  onRegisterBackHandler?: (handler: () => boolean) => () => void;
 }
 
 /** Wrong answers added on top of the correct one in every option list. */
@@ -27,6 +29,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   userState,
   onUpdateState,
   onNavigate,
+  onGoBack,
+  onRegisterBackHandler,
 }) => {
   const [activeGame, setActiveGame] = useState<'srs' | 'mcq' | 'pairs' | 'audio' | null>(null);
 
@@ -64,6 +68,15 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   useEffect(() => () => {
     if (quizTimerRef.current) clearTimeout(quizTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!activeGame) return undefined;
+    return onRegisterBackHandler?.(() => {
+      audioService.playClick();
+      setActiveGame(null);
+      return true;
+    });
+  }, [activeGame, onRegisterBackHandler]);
 
   // The reader can contain grammar tokens and older progress can contain
   // temporary ids. Practice must only use complete dictionary records, or it
@@ -253,6 +266,23 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
   return (
     <div className="view">
+      <button
+        className="backlink"
+        type="button"
+        onClick={() => {
+          audioService.playClick();
+          if (activeGame) {
+            setActiveGame(null);
+          } else if (onGoBack) {
+            onGoBack();
+          } else {
+            onNavigate('lessons');
+          }
+        }}
+      >
+        <Icon name="chevron-left" className="sm" /> {activeGame ? 'Назад к режимам' : 'Назад'}
+      </button>
+
       <div className="overline">тренажёр памяти</div>
       <h1 className="display">Практика и карточки</h1>
       <p className="sub">

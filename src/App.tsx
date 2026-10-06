@@ -93,6 +93,20 @@ export const App: React.FC = () => {
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
 
+  // Navigation History Stack & Back Control
+  const navHistoryRef = useRef<{ route: Route; lessonId: string | null }[]>([]);
+  const isPoppingHistoryRef = useRef(false);
+  const childBackHandlerRef = useRef<(() => boolean) | null>(null);
+
+  const registerBackHandler = useCallback((handler: () => boolean) => {
+    childBackHandlerRef.current = handler;
+    return () => {
+      if (childBackHandlerRef.current === handler) {
+        childBackHandlerRef.current = null;
+      }
+    };
+  }, []);
+
   // Word Popup Card State
   const [popupWord, setPopupWord] = useState<{ word: Word; position: { left: number; top: number }; contextSentence?: string } | null>(null);
 
@@ -333,16 +347,123 @@ export const App: React.FC = () => {
   // Navigation handler
   const handleNavigate = useCallback((route: Route) => {
     setPopupWord(null);
-    setCurrentRoute(route);
+    setIsNavOpen(false);
+    if (route !== currentRoute || activeLessonId !== null) {
+      navHistoryRef.current.push({ route: currentRoute, lessonId: activeLessonId });
+      setCurrentRoute(route);
+      setActiveLessonId(null);
+      try {
+        window.history.pushState({ route, depth: navHistoryRef.current.length }, '');
+      } catch {
+        // Ignore history pushState error
+      }
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [currentRoute, activeLessonId]);
 
   const handleOpenLesson = useCallback((lessonId: string) => {
     setPopupWord(null);
-    setActiveLessonId(lessonId);
-    setCurrentRoute('reader');
+    setIsNavOpen(false);
+    if (currentRoute !== 'reader' || activeLessonId !== lessonId) {
+      navHistoryRef.current.push({ route: currentRoute, lessonId: activeLessonId });
+      setActiveLessonId(lessonId);
+      setCurrentRoute('reader');
+      try {
+        window.history.pushState({ route: 'reader', lessonId, depth: navHistoryRef.current.length }, '');
+      } catch {
+        // Ignore history pushState error
+      }
+    }
     window.scrollTo({ top: 0 });
+  }, [currentRoute, activeLessonId]);
+
+  const handleGoBack = useCallback((): boolean => {
+    // 1. Close active overlays first in topmost order
+    if (popupWord) {
+      setPopupWord(null);
+      return true;
+    }
+    if (showUpdateModal) {
+      setShowUpdateModal(false);
+      return true;
+    }
+    if (showAuthModal) {
+      setShowAuthModal(false);
+      return true;
+    }
+    if (showOnboarding && isRetakeOnly) {
+      setShowOnboarding(false);
+      setIsRetakeOnly(false);
+      return true;
+    }
+    if (isNavOpen) {
+      setIsNavOpen(false);
+      return true;
+    }
+
+    // 2. Delegate to child screen's active sub-mode (e.g. GrammarTrainer or Practice active game)
+    if (childBackHandlerRef.current && childBackHandlerRef.current()) {
+      return true;
+    }
+
+    // 3. Pop navigation history
+    if (navHistoryRef.current.length > 0) {
+      audioService.playClick();
+      const prev = navHistoryRef.current.pop()!;
+      isPoppingHistoryRef.current = true;
+      try {
+        window.history.back();
+      } catch {
+        // Ignore history error
+      }
+      setCurrentRoute(prev.route);
+      setActiveLessonId(prev.lessonId);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return true;
+    }
+
+    // 4. Fallback: if not on lessons root, go back to lessons
+    if (currentRoute !== 'lessons') {
+      audioService.playClick();
+      setCurrentRoute('lessons');
+      setActiveLessonId(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return true;
+    }
+
+    // 5. Already at root with nothing open
+    return false;
+  }, [popupWord, showUpdateModal, showAuthModal, showOnboarding, isRetakeOnly, isNavOpen, currentRoute]);
+
+  const handleGoBackRef = useRef(handleGoBack);
+  useEffect(() => {
+    handleGoBackRef.current = handleGoBack;
+  }, [handleGoBack]);
+
+  // Install global handler for Android Native shell (MainActivity.kt)
+  useEffect(() => {
+    (window as unknown as { __handleAppBack: () => boolean }).__handleAppBack = () => {
+      return handleGoBackRef.current();
+    };
+    return () => {
+      delete (window as unknown as { __handleAppBack?: unknown }).__handleAppBack;
+    };
   }, []);
+
+  // Listen to browser popstate (e.g. mobile browser swipe back or desktop browser back button)
+  useEffect(() => {
+    const handlePopState = () => {
+      if (isPoppingHistoryRef.current) {
+        isPoppingHistoryRef.current = false;
+        return;
+      }
+      handleGoBackRef.current();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const canGoBack = currentRoute !== 'lessons' || navHistoryRef.current.length > 0;
 
   const handleSelectLang = useCallback((code: LanguageCode) => {
     StorageService.ensureLangProgress(userState, code);
@@ -426,11 +547,17 @@ export const App: React.FC = () => {
   }, [userState, showToast]);
 
   const handleSaveCustomLesson = useCallback((customLesson: Lesson) => {
+    navHistoryRef.current.push({ route: currentRoute, lessonId: activeLessonId });
     setActiveLessonId(customLesson.id);
     setCurrentRoute('reader');
     setUserState({ ...userState });
+    try {
+      window.history.pushState({ route: 'reader', lessonId: customLesson.id, depth: navHistoryRef.current.length }, '');
+    } catch {
+      // Ignore
+    }
     showToast(`Свой урок «${customLesson.title}» создан!`);
-  }, [userState, showToast]);
+  }, [userState, currentRoute, activeLessonId, showToast]);
 
   const handleResetProgress = useCallback(() => {
     if (window.confirm('Точно сбросить весь прогресс? Это действие необратимо.')) {
@@ -507,6 +634,8 @@ export const App: React.FC = () => {
         onOpenAuth={handleOpenAuth}
         hasUpdate={Boolean(updateResult?.hasUpdate)}
         onOpenUpdates={() => setShowUpdateModal(true)}
+        canGoBack={canGoBack}
+        onGoBack={handleGoBack}
       />
 
       {/* Layout Shell */}
@@ -541,6 +670,7 @@ export const App: React.FC = () => {
                   lesson={activeLesson}
                   userState={userState}
                   onNavigate={handleNavigate}
+                  onGoBack={handleGoBack}
                   onLearnWord={handleLearnWord}
                   onOpenWordPopup={handleOpenWordPopup}
                   onUpdateState={(updated) => setUserState({ ...updated })}
@@ -552,6 +682,7 @@ export const App: React.FC = () => {
                   userState={userState}
                   onSaveCustomLesson={handleSaveCustomLesson}
                   onNavigate={handleNavigate}
+                  onGoBack={handleGoBack}
                 />
               )}
 
@@ -560,6 +691,8 @@ export const App: React.FC = () => {
                   userState={userState}
                   onUpdateState={(updated) => setUserState({ ...updated })}
                   onNavigate={handleNavigate}
+                  onGoBack={handleGoBack}
+                  onRegisterBackHandler={registerBackHandler}
                 />
               )}
 
@@ -568,6 +701,7 @@ export const App: React.FC = () => {
                   userState={userState}
                   onUpdateState={(updated) => setUserState({ ...updated })}
                   onNavigate={handleNavigate}
+                  onGoBack={handleGoBack}
                 />
               )}
 
@@ -576,6 +710,7 @@ export const App: React.FC = () => {
                   userState={userState}
                   onUpdateState={(updated) => setUserState({ ...updated })}
                   onNavigate={handleNavigate}
+                  onGoBack={handleGoBack}
                 />
               )}
 
@@ -583,6 +718,7 @@ export const App: React.FC = () => {
                 <DictView
                   userState={userState}
                   onNavigate={handleNavigate}
+                  onGoBack={handleGoBack}
                   onLearnWord={handleLearnWord}
                   onForgetWord={handleForgetWord}
                 />
@@ -593,17 +729,29 @@ export const App: React.FC = () => {
                   userState={userState}
                   showAllWords
                   onNavigate={handleNavigate}
+                  onGoBack={handleGoBack}
                   onLearnWord={handleLearnWord}
                   onForgetWord={handleForgetWord}
                 />
               )}
 
               {currentRoute === 'grammar' && (
-                <GrammarView key={userState.currentLang} userState={userState} onNavigate={handleNavigate} onUpdateState={(updated) => setUserState({ ...updated })} />
+                <GrammarView
+                  key={userState.currentLang}
+                  userState={userState}
+                  onNavigate={handleNavigate}
+                  onGoBack={handleGoBack}
+                  onRegisterBackHandler={registerBackHandler}
+                  onUpdateState={(updated) => setUserState({ ...updated })}
+                />
               )}
 
               {currentRoute === 'alphabet' && (
-                <AlphabetView userState={userState} onNavigate={handleNavigate} />
+                <AlphabetView
+                  userState={userState}
+                  onNavigate={handleNavigate}
+                  onGoBack={handleGoBack}
+                />
               )}
 
               {currentRoute === 'profile' && (
@@ -615,6 +763,8 @@ export const App: React.FC = () => {
                   onOpenAuth={handleOpenAuth}
                   onSignOut={handleSignOut}
                   onCheckUpdates={handleCheckUpdatesManual}
+                  onGoBack={handleGoBack}
+                  onNavigate={handleNavigate}
                 />
               )}
             </React.Suspense>

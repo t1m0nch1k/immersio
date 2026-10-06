@@ -28,6 +28,7 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import android.os.Build
 import android.content.Context
 import android.os.VibrationEffect
@@ -322,9 +323,34 @@ class MainActivity : ComponentActivity() {
         else webView.restoreState(savedInstanceState)
         captureAuthResult(intent)
 
+        var lastBackPressTime: Long = 0
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) webView.goBack() else finish()
+                if (::webView.isInitialized) {
+                    webView.evaluateJavascript("Boolean(window.__handleAppBack && window.__handleAppBack())") { result ->
+                        val handled = result?.trim()?.equals("true", ignoreCase = true) == true
+                        if (!handled) {
+                            if (webView.canGoBack()) {
+                                webView.goBack()
+                            } else {
+                                val now = System.currentTimeMillis()
+                                if (now - lastBackPressTime < 2000) {
+                                    finish()
+                                } else {
+                                    lastBackPressTime = now
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Нажмите ещё раз для выхода",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    finish()
+                }
             }
         })
     }

@@ -11,12 +11,14 @@ interface CustomTextImportProps {
   userState: UserState;
   onSaveCustomLesson: (lesson: Lesson) => void;
   onNavigate: (route: Route) => void;
+  onGoBack?: () => void;
 }
 
 export const CustomTextImport: React.FC<CustomTextImportProps> = ({
   userState,
   onSaveCustomLesson,
   onNavigate,
+  onGoBack,
 }) => {
   const [title, setTitle] = useState('');
   const [emoji, setEmoji] = useState('📖');
@@ -106,6 +108,17 @@ export const CustomTextImport: React.FC<CustomTextImportProps> = ({
 
   return (
     <div className="view">
+      <button
+        className="backlink"
+        type="button"
+        onClick={() => {
+          audioService.playClick();
+          if (onGoBack) onGoBack();
+          else onNavigate('lessons');
+        }}
+      >
+        <Icon name="chevron-left" className="sm" /> Назад
+      </button>
       <div className="overline">конструктор текстов</div>
       <h1 className="display">Свой текст для погружения</h1>
       <p className="sub">

@@ -33,6 +33,7 @@ interface ReaderViewProps {
   lesson: Lesson;
   userState: UserState;
   onNavigate: (route: Route) => void;
+  onGoBack?: () => void;
   /**
    * Accepted but unused here: the reader learns and forgets words exclusively
    * through the word popup, which lives in `App.tsx` and owns both callbacks.
@@ -150,6 +151,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   lesson,
   userState,
   onNavigate,
+  onGoBack,
   onOpenWordPopup,
   onUpdateState,
 }) => {
@@ -508,8 +510,8 @@ let depthNote = '';
 
   return (
     <div className="view">
-      <button className="backlink" onClick={() => onNavigate('lessons')}>
-        ← ко всем урокам
+      <button className="backlink" type="button" onClick={onGoBack || (() => onNavigate('lessons'))}>
+        <Icon name="chevron-left" className="sm" /> Назад
       </button>
 
       <div className="card">
