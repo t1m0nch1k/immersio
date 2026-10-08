@@ -4,10 +4,12 @@ import { LANGUAGES } from '../data/languages';
 import { CATEGORIES } from '../data/categories';
 import { audioService } from '../services/audioService';
 import { evaluatePronunciation, isSpeechRecognitionSupported, startSpeechRecognition } from '../services/speechService';
+import { GrammarNote } from '../services/grammarLookupService';
 import { Icon, IconName } from './icons';
 
-interface WordCardModalProps {
-  word: Word;
+export interface WordCardModalProps {
+  word?: Word;
+  grammarNote?: GrammarNote;
   position: { left: number; top: number };
   contextSentence?: string;
   isLearned: boolean;
@@ -46,6 +48,7 @@ export const clampToViewport = (
 
 export const WordCardModal: React.FC<WordCardModalProps> = ({
   word,
+  grammarNote,
   position,
   contextSentence,
   isLearned,
@@ -61,9 +64,13 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
   const [speechResult, setSpeechResult] = useState<{ score: number; recognized: string } | null>(null);
   const recognitionStopRef = useRef<(() => void) | null>(null);
 
-  const langObj = LANGUAGES[currentLang] || LANGUAGES.en;
-  const targetWord = word[currentLang] || word.en;
-  const catObj = CATEGORIES[word.cat] || { emoji: '📌', icon: 'pin', title: word.cat };
+  const targetWord = grammarNote ? grammarNote.text : (word ? (word[currentLang] || word.en) : '');
+  const langObj = grammarNote && grammarNote.lang === 'ru'
+    ? { code: 'en' as LanguageCode, name: 'Русский язык', nativeName: 'Русский', flag: '🇷🇺', speechLang: 'ru-RU', bgLetters: [] }
+    : grammarNote
+    ? (LANGUAGES[grammarNote.lang as LanguageCode] || LANGUAGES[currentLang] || LANGUAGES.en)
+    : (LANGUAGES[currentLang] || LANGUAGES.en);
+  const catObj = word ? (CATEGORIES[word.cat] || { emoji: '📌', icon: 'pin', title: word.cat }) : null;
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -106,7 +113,7 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
       window.removeEventListener('scroll', place, true);
       observer?.disconnect();
     };
-  }, [position.left, position.top, word.id, isLearned, currentLang, contextSentence, speechResult, isListening]);
+  }, [position.left, position.top, word?.id, grammarNote?.text, isLearned, currentLang, contextSentence, speechResult, isListening]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -128,7 +135,8 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
   }, []);
 
   const handleSpeak = () => {
-    audioService.speak(targetWord, currentLang);
+    const speakLang = (grammarNote && grammarNote.lang !== 'ru' ? grammarNote.lang : currentLang) as LanguageCode;
+    audioService.speak(targetWord, speakLang);
   };
 
   const handleStartSpeaking = () => {
@@ -137,13 +145,14 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
       setIsListening(false);
       return;
     }
+    const checkLang = (grammarNote && grammarNote.lang !== 'ru' ? grammarNote.lang : currentLang) as LanguageCode;
     setSpeechResult(null);
     setIsListening(true);
     const stop = startSpeechRecognition({
-      lang: currentLang,
+      lang: checkLang,
       onResult: (text, isFinal) => {
         if (isFinal) {
-          const evalRes = evaluatePronunciation(text, targetWord, currentLang);
+          const evalRes = evaluatePronunciation(text, targetWord, checkLang);
           setSpeechResult({ score: evalRes.score, recognized: text });
           setIsListening(false);
           if (evalRes.score >= 70) {
@@ -240,13 +249,42 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
         </div>
       )}
 
-      <div className="pru">{word.ru}</div>
+      {grammarNote ? (
+        <>
+          <div className="pru">{grammarNote.meaningRu}</div>
 
-      <div style={{ margin: '8px 0' }}>
-        <span className="chip dim">
-          <Icon name={(catObj.icon || 'pin') as IconName} className="sm" /> {catObj.title}
-        </span>
-      </div>
+          <div style={{ margin: '8px 0' }}>
+            <span className="chip sun">
+              <Icon name="book-open" className="sm" /> {grammarNote.partOfSpeech}
+            </span>
+          </div>
+
+          <div style={{
+            background: 'rgba(14, 138, 109, 0.08)',
+            border: '1.5px solid var(--sea)',
+            borderRadius: '10px',
+            padding: '8px 10px',
+            margin: '8px 0 10px',
+            fontSize: '12.5px',
+            lineHeight: '1.45',
+          }}>
+            <div style={{ fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--sea)', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Icon name="lightbulb" size={12} /> {grammarNote.isFallback ? 'О слове' : 'Грамматическая справка'}
+            </div>
+            <div>{grammarNote.rule}</div>
+          </div>
+        </>
+      ) : word ? (
+        <>
+          <div className="pru">{word.ru}</div>
+
+          <div style={{ margin: '8px 0' }}>
+            <span className="chip dim">
+              <Icon name={(catObj?.icon || 'pin') as IconName} className="sm" /> {catObj?.title}
+            </span>
+          </div>
+        </>
+      ) : null}
 
       {contextSentence && (
         <div style={{
@@ -265,14 +303,26 @@ export const WordCardModal: React.FC<WordCardModalProps> = ({
         </div>
       )}
 
-      {word.exampleRu && !contextSentence && (
+      {word?.exampleRu && !contextSentence && (
         <div style={{ fontSize: '12.5px', color: 'var(--ink2)', margin: '8px 0', fontStyle: 'italic' }}>
           «{word.exampleRu}»
         </div>
       )}
 
       <div className="pbtns">
-        {isLearned ? (
+        {grammarNote || !word ? (
+          <button
+            type="button"
+            className="btn small pine"
+            style={{ width: '100%' }}
+            onClick={() => {
+              audioService.playClick();
+              onClose();
+            }}
+          >
+            <Icon name="check" className="sm" /> Понятно
+          </button>
+        ) : isLearned ? (
           <>
             <button
               type="button"

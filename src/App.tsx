@@ -21,6 +21,7 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { LessonList } from './components/LessonList';
 import { WordCardModal } from './components/WordCardModal';
+import { GrammarNote } from './services/grammarLookupService';
 import { AuthModal } from './components/AuthModal';
 import { UpdateModal } from './components/UpdateModal';
 import { UpdateService, UpdateCheckResult } from './services/updateService';
@@ -107,8 +108,13 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Word Popup Card State
-  const [popupWord, setPopupWord] = useState<{ word: Word; position: { left: number; top: number }; contextSentence?: string } | null>(null);
+  // Word & Grammar Popup Card State
+  const [popupWord, setPopupWord] = useState<{
+    word?: Word;
+    grammarNote?: GrammarNote;
+    position: { left: number; top: number };
+    contextSentence?: string;
+  } | null>(null);
 
   // Modals State
   const [showOnboarding, setShowOnboarding] = useState<boolean>(!userState.onboarded);
@@ -577,6 +583,15 @@ export const App: React.FC = () => {
     setPopupWord({ word, position: { left: x, top: y }, contextSentence });
   }, []);
 
+  const handleOpenGrammarPopup = useCallback((grammarNote: GrammarNote, rect: DOMRect, contextSentence?: string) => {
+    const x = Math.min(Math.max(12, rect.left + rect.width / 2 - 140), window.innerWidth - 292);
+    let y = rect.bottom + 10;
+    if (y + 230 > window.innerHeight) {
+      y = Math.max(10, rect.top - 240);
+    }
+    setPopupWord({ grammarNote, position: { left: x, top: y }, contextSentence });
+  }, []);
+
   const handleClosePopup = useCallback(() => setPopupWord(null), []);
   const handleOpenNav = useCallback(() => setIsNavOpen(true), []);
   const handleCloseNav = useCallback(() => setIsNavOpen(false), []);
@@ -598,7 +613,7 @@ export const App: React.FC = () => {
     [allLessons, activeLessonId]
   );
   const isPopupWordLearned = useMemo(
-    () => (popupWord
+    () => (popupWord?.word
       ? StorageService.getLangProgress(userState, userState.currentLang).learnedWords.includes(popupWord.word.id)
       : false),
     [popupWord, userState]
@@ -673,6 +688,7 @@ export const App: React.FC = () => {
                   onGoBack={handleGoBack}
                   onLearnWord={handleLearnWord}
                   onOpenWordPopup={handleOpenWordPopup}
+                  onOpenGrammarPopup={handleOpenGrammarPopup}
                   onUpdateState={(updated) => setUserState({ ...updated })}
                 />
               )}
@@ -776,6 +792,7 @@ export const App: React.FC = () => {
       {popupWord && (
         <WordCardModal
           word={popupWord.word}
+          grammarNote={popupWord.grammarNote}
           position={popupWord.position}
           contextSentence={popupWord.contextSentence}
           isLearned={isPopupWordLearned}

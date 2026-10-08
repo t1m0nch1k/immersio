@@ -1329,8 +1329,9 @@ header .iconbtn .ic {
   vertical-align: -2px;
 }
 
-.sw.new { background: var(--sun); border-bottom: 2px dashed var(--ink); }
-.sw.known { border-bottom: 3px solid var(--sea); }
+/* [ARCHIVED: .sw.new { background: var(--sun); border-bottom: 2px dashed var(--ink); } .sw.known { border-bottom: 3px solid var(--sea); } ] */
+.sw.new { background: rgba(245, 178, 55, 0.35); border-bottom: 2px dashed #d97706; }
+.sw.known { background: transparent; border-bottom: 2.5px solid var(--sea); }
 
 /* Reader Controls & In-Reader Immersion Bar */
 .reader-controls-card {
@@ -1497,59 +1498,41 @@ header .iconbtn .ic {
   display: inline;
 }
 
+/* Inline words preserve sentence spacing; only interaction adds a backdrop. */
 .tk {
   border: 0;
   font: inherit;
   cursor: pointer;
-  padding: 1px 5px;
+  padding: 0;
   margin: 0;
   display: inline;
-  border-radius: 6px;
-  font-weight: 700;
-  transition: all 0.15s ease;
-  white-space: nowrap;
+  border-radius: 3px;
   vertical-align: baseline;
+  background: transparent;
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  transition: background 0.12s ease;
 }
 
 .tk.new {
-  background: linear-gradient(104deg, transparent 4%, var(--sun) 4% 96%, transparent 96%);
-  border-bottom: 2px dashed var(--ink);
-  color: #1b2a23;
-  transform: rotate(-0.6deg);
-}
-
-.tk.new:hover {
-  transform: rotate(0) translateY(-2px);
-  box-shadow: 0 3px 0 var(--shadow-color);
-}
-
-.tk:active {
-  transform: scale(0.92);
-  opacity: 0.85;
-  transition: transform 0.06s ease;
-}
-
-.tk.new:active {
-  transform: translateY(1px) scale(0.92);
-  box-shadow: 0 1px 0 var(--shadow-color);
-  transition: transform 0.06s ease;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--ink2);
 }
 
 .tk.known {
-  color: var(--pine);
-  border-bottom: 2.5px solid var(--sea);
-  background: #ffffff;
-  border-radius: 6px;
+  text-decoration-color: var(--sea);
 }
 
-[data-theme="dark"] .tk.known {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
-  border-bottom: 2.5px solid var(--sea);
+.tk:hover, .tk:active {
+  background: rgba(245, 178, 55, 0.2);
 }
 
-.tk.known:hover {
-  background: rgba(14, 138, 109, 0.15);
+.tk:focus-visible {
+  outline: 2px solid var(--sea);
+  outline-offset: 2px;
+  background: rgba(245, 178, 55, 0.2);
 }
 
 .tk.cloze-masked {

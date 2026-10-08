@@ -4,7 +4,7 @@ import { audioService } from './audioService';
 import { isValidAvatar } from '../utils/avatar';
 
 const STORAGE_KEY = 'pogruzhenie_v2';
-const SUPPORTED_LANGUAGES: LanguageCode[] = ['en', 'es', 'de', 'fr', 'it', 'ja', 'sk', 'cs'];
+const SUPPORTED_LANGUAGES: LanguageCode[] = ['en', 'es', 'de', 'fr', 'it', 'ja', 'sk', 'cs', 'he', 'kk', 'ba'];
 const nonNegativeNumber = (value: unknown): number => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
 const finiteNumber = (value: unknown, fallback: number): number => typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>

@@ -28,6 +28,11 @@ import { createSeededRandom } from './seededRandom';
 import { PairSide, usePairsMatching } from './usePairsMatching';
 import { Route } from '../routes';
 import { Icon } from './icons';
+import {
+  GrammarNote,
+  lookupGrammarNote,
+  createFallbackExplorationNote,
+} from '../services/grammarLookupService';
 
 interface ReaderViewProps {
   lesson: Lesson;
@@ -43,6 +48,7 @@ interface ReaderViewProps {
   onLearnWord?: (wordId: string) => void;
   onForgetWord?: (wordId: string) => void;
   onOpenWordPopup: (word: Word, rect: DOMRect, contextSentence?: string) => void;
+  onOpenGrammarPopup?: (grammarNote: GrammarNote, rect: DOMRect, contextSentence?: string) => void;
   onUpdateState: (newState: UserState) => void;
 }
 
@@ -107,7 +113,7 @@ const OriginalSentence = React.memo(function OriginalSentence({
               key={token.key}
               className={`tk ${isKnown ? 'known' : 'new'}`}
               onClick={(e) => onWordClick(e, word?.id || effectiveWordId, token.text, sentenceText)}
-              title={word ? `Перевод: ${word.ru}` : 'Нажмите для перевода и озвучки'}
+              title={word ? `Перевод: ${word.ru}` : 'Нажмите для пояснения и озвучки'}
             >
               {token.text}
             </button>
@@ -153,6 +159,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   onNavigate,
   onGoBack,
   onOpenWordPopup,
+  onOpenGrammarPopup,
   onUpdateState,
 }) => {
   const currentLang = userState.currentLang;
@@ -306,9 +313,11 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   // is read through a ref. That keeps `handleForeignWordClick` stable, which is
   // what lets the memoized original sentences skip re-rendering.
   const openWordPopupRef = useRef(onOpenWordPopup);
+  const openGrammarPopupRef = useRef(onOpenGrammarPopup);
   useEffect(() => {
     openWordPopupRef.current = onOpenWordPopup;
-  }, [onOpenWordPopup]);
+    openGrammarPopupRef.current = onOpenGrammarPopup;
+  }, [onOpenWordPopup, onOpenGrammarPopup]);
 
   // Whether the dial is hand-set. Read once on mount and refreshed on change, so
   // the "return to automatic" affordance can appear without polling storage.
@@ -358,10 +367,13 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         const rect = e.currentTarget.getBoundingClientRect();
         openWordPopupRef.current(word, rect, contextSentence);
       } else {
-        // Do not create a fake dictionary card with the foreign word as its
-        // Russian translation. Unknown tokens can still be pronounced, but
-        // they must not enter learnedWords and later produce empty quiz options.
-        audioService.speak(text, currentLang);
+        const note = lookupGrammarNote(text, currentLang, contextSentence)
+          ?? createFallbackExplorationNote(text, currentLang, contextSentence);
+        if (openGrammarPopupRef.current) {
+          openGrammarPopupRef.current(note, e.currentTarget.getBoundingClientRect(), contextSentence);
+        } else {
+          toastService.show(note.meaningRu);
+        }
       }
     },
     [currentLang]

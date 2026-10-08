@@ -9,7 +9,7 @@ globalThis.localStorage = {
 };
 const bundle = await build({
   stdin: {
-    contents: "export * from './src/services/grammarService'; export * from './src/services/storageService'; export * from './src/data/grammar';",
+    contents: "export * from './src/services/grammarLookupService'; export * from './src/services/grammarService'; export * from './src/services/storageService'; export * from './src/data/grammar';",
     resolveDir: process.cwd(), loader: 'ts',
   }, bundle: true, write: false, platform: 'node', format: 'esm',
 });
@@ -67,3 +67,14 @@ delete legacy.languages.en.grammarProgress;
 localStorage.setItem('pogruzhenie_v2', JSON.stringify(legacy));
 assert.deepEqual(api.StorageService.load().languages.en.grammarProgress, {});
 console.log('PASS: ' + count + ' exercises, alternatives, Unicode, progress, persistence, language isolation, reward limits.');
+
+// Reader explanations must preserve contractions and distinguish missing data.
+assert.equal(api.lookupGrammarNote('the', 'en', 'The book is here.').partOfSpeech, 'Артикль');
+assert.equal(api.lookupGrammarNote('and', 'en').meaningRu, 'и, а');
+assert.equal(api.lookupGrammarNote('don’t', 'en').partOfSpeech, 'Отрицательное сокращение');
+assert.equal(api.lookupGrammarNote("l'homme", 'fr').partOfSpeech, 'Слитная форма (элизия)');
+assert.equal(api.lookupGrammarNote('zzunknown', 'en'), null);
+const missingNote = api.createFallbackExplorationNote('zzunknown', 'en', 'A zzunknown appears.');
+assert.equal(missingNote.isFallback, true);
+assert.equal(missingNote.contextSentence, 'A zzunknown appears.');
+assert(missingNote.meaningRu.includes('не найден'));
