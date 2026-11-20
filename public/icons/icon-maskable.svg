@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Maskable variant of the app icon: the same mark, kept inside the central
+       80% safe zone so launchers can crop it into any adaptive shape. -->
+  <rect width="512" height="512" fill="#0f3d2e"/>
+  <g transform="translate(51 51) scale(0.8)">
+    <circle cx="372" cy="112" r="46" fill="#ffd43b"/>
+    <path d="M0,330 C100,250 180,250 256,300 C330,350 420,340 512,290 L512,512 L0,512 Z" fill="#fffdf6"/>
+    <path d="M0,400 C90,340 180,340 256,380 C340,420 430,410 512,360 L512,512 L0,512 Z" fill="#0e8a6d"/>
+  </g>
+</svg>
