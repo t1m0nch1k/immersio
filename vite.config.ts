@@ -54,6 +54,21 @@ export default defineConfig(({ mode }) => {
   });
 
   return ({
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the two heaviest, slowest-changing dependencies out of the
+        // entry chunk. React changes only when the app upgrades it, and the
+        // Supabase SDK is loaded lazily (see services/supabase.ts), so both
+        // chunks keep their hash — and the browser cache — across app deploys
+        // instead of being re-downloaded with every release.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     {

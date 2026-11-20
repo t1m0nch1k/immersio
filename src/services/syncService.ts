@@ -93,9 +93,31 @@ class SyncService {
   private conflict: { remote: Record<string, unknown>; local: UserState; updatedAt: string } | null = null;
 
   constructor() {
-    if (isSyncConfigured()) this.backend = createSupabaseBackend(getSupabase()!);
     this.view = { ...EMPTY_VIEW, status: isSyncConfigured() ? 'guest' : 'unconfigured' };
   }
+
+  /**
+   * Builds the backend on first use, not at construction.
+   *
+   * The Supabase SDK behind it is loaded lazily (see `supabase.ts`), so
+   * constructing the engine must not touch it: the engine exists on every
+   * screen, including for guests who will never sign in. A guest attach returns
+   * before this is called, so the SDK is fetched only once a real session
+   * needs it. The promise is shared so concurrent callers import once.
+   */
+  private backendPromise: Promise<SyncBackend | null> | null = null;
+
+  private ensureBackend = async (): Promise<SyncBackend | null> => {
+    if (this.backend) return this.backend;
+    if (!isSyncConfigured()) return null;
+    if (!this.backendPromise) {
+      this.backendPromise = getSupabase().then((client) =>
+        client ? createSupabaseBackend(client) : null,
+      );
+    }
+    this.backend = await this.backendPromise;
+    return this.backend;
+  };
 
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
@@ -150,15 +172,22 @@ class SyncService {
     this.local = state;
     const changed = userId !== this.userId;
     this.userId = userId;
-    if (!this.backend) {
-      this.setStatus('unconfigured');
-      return;
-    }
     if (!userId) {
+      // A guest never needs the backend, so do not load the SDK for them: the
+      // status still has to say whether sync exists at all.
+      if (!isSyncConfigured()) {
+        this.setStatus('unconfigured');
+        return;
+      }
       this.clearTimers();
       this.pendingState = null;
       this.conflict = null;
       this.setStatus('guest');
+      return;
+    }
+    await this.ensureBackend();
+    if (!this.backend) {
+      this.setStatus('unconfigured');
       return;
     }
     this.setStatus(readMarker().dirty ? 'pending' : 'idle');
@@ -347,6 +376,7 @@ class SyncService {
     this.userId = null;
     this.local = null;
     this.backend = null;
+    this.backendPromise = null;
   };
 
   setBackend = (backend: SyncBackend | null): void => {

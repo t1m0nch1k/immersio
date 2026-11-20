@@ -22,8 +22,6 @@ import { Sidebar } from './components/Sidebar';
 import { LessonList } from './components/LessonList';
 import { WordCardModal } from './components/WordCardModal';
 import { GrammarNote } from './services/grammarLookupService';
-import { AuthModal } from './components/AuthModal';
-import { UpdateModal } from './components/UpdateModal';
 import { UpdateService, UpdateCheckResult } from './services/updateService';
 import { SplashScreen } from './components/SplashScreen';
 import { hapticService } from './services/hapticService';
@@ -43,6 +41,9 @@ const ListeningView = React.lazy(() => import('./components/ListeningView').then
 const DictView = React.lazy(() => import('./components/DictView').then((module) => ({ default: module.DictView })));
 const ProfileView = React.lazy(() => import('./components/ProfileView').then((module) => ({ default: module.ProfileView })));
 const OnboardingModal = React.lazy(() => import('./components/OnboardingModal').then((module) => ({ default: module.OnboardingModal })));
+// Shown rarely (sign-in, update prompt), so they load on demand like the views.
+const AuthModal = React.lazy(() => import('./components/AuthModal').then((module) => ({ default: module.AuthModal })));
+const UpdateModal = React.lazy(() => import('./components/UpdateModal').then((module) => ({ default: module.UpdateModal })));
 
 const BACKGROUND_LETTER_COUNT = 16;
 
@@ -283,7 +284,7 @@ export const App: React.FC = () => {
         await syncService.attach(userState, null);
         return;
       }
-      const client = getSupabase();
+      const client = await getSupabase();
       if (!client) return;
 
       // The handler is installed before anything can redirect, because on a
@@ -332,7 +333,7 @@ export const App: React.FC = () => {
     // no valid session to send it and quietly discard it.
     await syncService.detach();
     if (isSyncConfigured()) {
-      const client = getSupabase();
+      const client = await getSupabase();
       if (client) await signOut(client);
     }
     const next = StorageService.load();
@@ -826,23 +827,27 @@ export const App: React.FC = () => {
 
       {/* Auth Modal */}
       {showAuthModal && (
-        <AuthModal
-          localWordCount={Object.values(userState.languages).reduce(
-            (total, progress) => total + (progress?.learnedWords.length ?? 0),
-            0
-          )}
-          onClose={handleCloseAuth}
-          onStartSignIn={handleCloseAuth}
-        />
+        <React.Suspense fallback={null}>
+          <AuthModal
+            localWordCount={Object.values(userState.languages).reduce(
+              (total, progress) => total + (progress?.learnedWords.length ?? 0),
+              0
+            )}
+            onClose={handleCloseAuth}
+            onStartSignIn={handleCloseAuth}
+          />
+        </React.Suspense>
       )}
 
       {/* Update Modal */}
       {showUpdateModal && (
-        <UpdateModal
-          checkResult={updateResult}
-          onClose={() => setShowUpdateModal(false)}
-          onReload={() => UpdateService.getInstance().reloadApp()}
-        />
+        <React.Suspense fallback={null}>
+          <UpdateModal
+            checkResult={updateResult}
+            onClose={() => setShowUpdateModal(false)}
+            onReload={() => UpdateService.getInstance().reloadApp()}
+          />
+        </React.Suspense>
       )}
 
       {/* Toast Notification */}

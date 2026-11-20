@@ -101,7 +101,7 @@ export type AuthStart =
  */
 export const signInWithGoogle = async (): Promise<AuthStart> => {
   if (!isSyncConfigured()) return { started: false, reason: 'not-configured' };
-  const client = getSupabase();
+  const client = await getSupabase();
   if (!client) return { started: false, reason: 'no-client' };
 
   try {

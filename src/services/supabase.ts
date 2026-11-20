@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * The Supabase connection, and the switch that decides whether sync exists at
@@ -18,6 +18,11 @@ export interface SupabaseConfig {
 
 let cachedConfig: SupabaseConfig | null | undefined;
 let cachedClient: SupabaseClient | null = null;
+/**
+ * The in-flight SDK import, shared so two callers racing at start-up import
+ * the module once instead of twice.
+ */
+let clientPromise: Promise<SupabaseClient | null> | null = null;
 
 /**
  * Reads the build-time environment defensively.
@@ -59,29 +64,51 @@ export const isSyncConfigured = (): boolean => getSupabaseConfig() !== null;
 export const setSupabaseConfigOverride = (config: SupabaseConfig | null): void => {
   cachedConfig = config;
   cachedClient = null;
+  clientPromise = null;
 };
 
-export const getSupabase = (): SupabaseClient | null => {
+/**
+ * The client, loaded on demand.
+ *
+ * The Supabase SDK is the single heaviest dependency in the bundle (over half
+ * of the entry chunk before this change), and it is only ever used when sync is
+ * configured and someone actually signs in. Importing it statically made every
+ * guest — and every build without Supabase credentials — download and parse it
+ * on first paint. A dynamic import keeps it out of the entry chunk entirely:
+ * the browser fetches it only on the first call that needs it, and the entry
+ * chunk stays small and cache-friendly.
+ */
+export const getSupabase = (): Promise<SupabaseClient | null> => {
+  if (cachedClient) return Promise.resolve(cachedClient);
+  if (clientPromise) return clientPromise;
   const config = getSupabaseConfig();
-  if (!config) return null;
-  if (!cachedClient) {
-    cachedClient = createClient(config.url, config.anonKey, {
-      auth: {
-        // The OAuth redirect lands on a custom scheme in the APK and is handed
-        // back by the shell, so the SDK must not go looking for it in the URL.
-        // On the web build this still works: the browser comes back to the site
-        // origin and `completeSignInFromLocation` is called by hand.
-        detectSessionInUrl: false,
-        flowType: 'pkce',
-        persistSession: true,
-        autoRefreshToken: true,
-      },
+  if (!config) return Promise.resolve(null);
+  clientPromise = import('@supabase/supabase-js')
+    .then(({ createClient }) => {
+      cachedClient = createClient(config.url, config.anonKey, {
+        auth: {
+          // The OAuth redirect lands on a custom scheme in the APK and is handed
+          // back by the shell, so the SDK must not go looking for it in the URL.
+          // On the web build this still works: the browser comes back to the site
+          // origin and `completeSignInFromLocation` is called by hand.
+          detectSessionInUrl: false,
+          flowType: 'pkce',
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      });
+      return cachedClient;
+    })
+    .catch((error: unknown) => {
+      // A failed import must not poison later attempts: the next call retries.
+      clientPromise = null;
+      throw error;
     });
-  }
-  return cachedClient;
+  return clientPromise;
 };
 
 /** Test seam: drop the memoised client so the next call rebuilds it. */
 export const resetSupabaseClient = (): void => {
   cachedClient = null;
+  clientPromise = null;
 };
