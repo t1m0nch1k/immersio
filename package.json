@@ -7,7 +7,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node tests/grammar.mjs && node tests/immersion.mjs && node tests/storage.mjs && node tests/srs.mjs && node tests/sync.mjs && node tests/dictionary.mjs && node tests/speech.mjs && node tests/update.mjs && node tests/tts.mjs && node tests/bundle.mjs && node tests/pwa.mjs",
+    "test": "node tests/grammar.mjs && node tests/immersion.mjs && node tests/storage.mjs && node tests/srs.mjs && node tests/sync.mjs && node tests/dictionary.mjs && node tests/speech.mjs && node tests/update.mjs && node tests/tts.mjs && node tests/bundle.mjs && node tests/pwa.mjs && node tests/content.mjs",
+    "test:content": "node tests/content.mjs",
     "test:grammar": "node tests/grammar.mjs",
     "test:dictionary": "node tests/dictionary.mjs",
     "test:speech": "node tests/speech.mjs",
