@@ -1,13 +1,15 @@
 /**
  * Generated dictionary entries that lesson texts actually resolve to.
  *
- * `expandedWords.ts` is a frequency-ranked core vocabulary of ~3.2k entries.
- * Shipping all of it in the user-facing dictionary had two problems: most of it
- * never appears in a single lesson (so the dictionary advertised thousands of
- * words the learner can never meet while reading), and a measurable slice of it
- * has broken translations — 126 entries whose eight translations collapse to
- * three or fewer distinct values, e.g. ru "ох" rendered as "oh" in every
- * language, or ru "ул." turned into "st"/"sv".
+ * `expandedWords.ts` used to be a frequency-ranked core vocabulary of ~3.5k
+ * entries; it is now pruned to exactly the entries listed here, because the
+ * other 96% never appeared in a single lesson. Shipping all of it in the
+ * user-facing dictionary had two problems: most of it never appears in a
+ * single lesson (so the dictionary advertised thousands of words the learner
+ * can never meet while reading), and a measurable slice of it has broken
+ * translations — 126 entries whose eight translations collapse to three or
+ * fewer distinct values, e.g. ru "ох" rendered as "oh" in every language,
+ * or ru "ул." turned into "st"/"sv".
  *
  * Dropping the whole corpus, though, is not an option either: 140 of these
  * entries are how lesson texts resolve ordinary words, and they carry 474 word

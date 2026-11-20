@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 
 let count = 0;
 const check = (condition, message) => {
@@ -49,5 +49,17 @@ check(!/^import \{ AuthModal \}/m.test(app) && !/^import \{ UpdateModal \}/m.tes
 check(vite.includes('manualChunks'), 'vite.config.ts defines manualChunks');
 check(vite.includes("'vendor-react': ['react', 'react-dom']"), 'manualChunks splits react/react-dom');
 check(vite.includes("'vendor-supabase': ['@supabase/supabase-js']"), 'manualChunks splits the Supabase SDK');
+
+// 8. The generated dictionary holds only lesson-linked entries. The full
+// frequency corpus was ~3.5k entries, but words.ts filtered it down to 140:
+// the rest never reached the dictionary, yet the whole 627 kB shipped in the
+// words chunk. A dead entry must not creep back in unnoticed.
+const expanded = readFileSync('src/data/expandedWords.ts', 'utf-8');
+const linked = new Set([...readFileSync('src/data/lessonLinkedWords.ts', 'utf-8').matchAll(/'(v\d+)'/g)].map((m) => m[1]));
+const generatedIds = [...expanded.matchAll(/\{ id: '(v\d+)'/g)].map((m) => m[1]);
+check(generatedIds.length > 0, 'expandedWords.ts still has generated entries');
+check(generatedIds.every((id) => linked.has(id)), 'every generated entry must be lesson-linked, got dead ids: ' + generatedIds.filter((id) => !linked.has(id)).slice(0, 5).join(', '));
+check(new Set(generatedIds).size === generatedIds.length, 'generated entry ids must be unique');
+check(statSync('src/data/expandedWords.ts').size < 64 * 1024, 'expandedWords.ts must stay under 64 kB, got ' + statSync('src/data/expandedWords.ts').size);
 
 console.log(`PASS: ${count} bundle-splitting cases — Supabase lazy, vendor chunks split, modals lazy.`);
