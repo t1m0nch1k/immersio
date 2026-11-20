@@ -39,6 +39,14 @@ VOICES = {
     "ja": os.getenv("EDGE_TTS_JA_VOICE", "ja-JP-NanamiNeural"),
     "sk": os.getenv("EDGE_TTS_VOICE", "sk-SK-ViktoriaNeural"),
     "cs": os.getenv("EDGE_TTS_CS_VOICE", "cs-CZ-VlastaNeural"),
+    "he": os.getenv("EDGE_TTS_HE_VOICE", "he-IL-HilaNeural"),
+    "kk": os.getenv("EDGE_TTS_KK_VOICE", "kk-KZ-AigulNeural"),
+    # Bashkir ("ba") is deliberately absent: Microsoft Edge / Azure Speech
+    # and Google TTS have no Bashkir neural voice, so there is no honest
+    # Edge voice to put here. Do not invent one (e.g. a Russian voice) --
+    # it would mispronounce Bashkir-specific letters.
+    # The client (audioService) skips this endpoint for "ba" and uses the
+    # device's speech synthesis instead, with kk-KZ then ru-RU as fallbacks.
 }
 RATE = os.getenv("EDGE_TTS_RATE", "-12%")
 MAX_TEXT_LENGTH = 500
@@ -239,6 +247,12 @@ class handler(BaseHTTPRequestHandler):
         if len(text) > MAX_TEXT_LENGTH:
             self._log(f"rejected request: text is {len(text)} characters")
             self._send(413, b"Text is too long", "text/plain; charset=utf-8")
+            return
+        if lang == "ba":
+            # No Edge-TTS voice exists for Bashkir; the client falls back
+            # to the device's speech synthesis, so fail fast and say so.
+            self._log("rejected request: Bashkir has no Edge-TTS voice")
+            self._send(400, b"Bashkir has no Edge-TTS voice", "text/plain; charset=utf-8")
             return
         if lang not in VOICES:
             self._log(f"rejected request: unsupported language {lang[:32]!r}")

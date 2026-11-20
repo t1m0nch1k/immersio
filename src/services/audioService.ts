@@ -50,17 +50,28 @@ class AudioService {
     if (!('speechSynthesis' in window)) return undefined;
     if (this.voices.length === 0) this.voices = window.speechSynthesis.getVoices();
 
-    const locale = LANGUAGES[langCode].speechLang.toLowerCase();
-    const language = locale.split('-')[0];
-    const candidates = this.voices.filter((voice) => {
-      const voiceLocale = voice.lang.toLowerCase().replace('_', '-');
-      return voiceLocale === locale || voiceLocale === language || voiceLocale.startsWith(`${language}-`);
-    });
+    // Bashkir has no Edge-TTS voice and rarely a native browser voice
+    // either. Kazakh is the closest neighbour (Kipchak Turkic, Cyrillic
+    // script); Russian is the last resort — it reads the shared Cyrillic
+    // letters, but not the Bashkir-specific ones (Ғ, Ҙ, Ҡ, Ң, Ҫ, Ү, Һ, Ә, Ө).
+    const localesToTry =
+      langCode === 'ba'
+        ? [LANGUAGES[langCode].speechLang.toLowerCase(), 'kk-KZ', 'ru-RU']
+        : [LANGUAGES[langCode].speechLang.toLowerCase()];
 
-    // Keep the browser voice only as a fallback after the Edge-TTS server proxy.
-    const preferred = candidates.find((voice) => /online|natural|neural|google/i.test(voice.name));
+    for (const locale of localesToTry) {
+      const language = locale.split('-')[0];
+      const candidates = this.voices.filter((voice) => {
+        const voiceLocale = voice.lang.toLowerCase().replace('_', '-');
+        return voiceLocale === locale || voiceLocale === language || voiceLocale.startsWith(`${language}-`);
+      });
 
-    return preferred || candidates.find((voice) => !voice.localService) || candidates[0];
+      // Keep the browser voice only as a fallback after the Edge-TTS server proxy.
+      const preferred = candidates.find((voice) => /online|natural|neural|google/i.test(voice.name));
+      const found = preferred || candidates.find((voice) => !voice.localService) || candidates[0];
+      if (found) return found;
+    }
+    return undefined;
   }
 
   private speakInBrowser(text: string, langCode: LanguageCode): boolean {
@@ -82,6 +93,11 @@ class AudioService {
   }
 
   private speakFromServer(text: string, langCode: LanguageCode): boolean {
+    // Bashkir has no Edge-TTS voice (see api/tts.py): do not waste a
+    // network round-trip on a request the server must reject — go straight
+    // to the browser voice in speak().
+    if (langCode === 'ba') return false;
+
     const targetLang = langCode;
     try {
       const ttsUrl = `/api/tts?text=${encodeURIComponent(text)}&lang=${targetLang}`;
@@ -104,8 +120,10 @@ class AudioService {
   }
 
   /**
-   * Speak a word in the requested language. All languages prefer the
-   * Edge-TTS server proxy for consistent Microsoft Neural pronunciation.
+   * Speak a word in the requested language. All languages except Bashkir
+   * prefer the Edge-TTS server proxy for consistent Microsoft Neural
+   * pronunciation; Bashkir has no Edge voice, so it goes straight to the
+   * device's speech synthesis (ba-RU, then kk-KZ, then ru-RU).
    */
   public speak(text: string, langCode: LanguageCode) {
     if (!this.soundEnabled || !text.trim()) return;
