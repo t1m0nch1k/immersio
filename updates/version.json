@@ -1,11 +1,11 @@
 {
   "appVersion": "2.1.0",
   "appBuild": 1,
-  "bundleVersion": "2026.11.21.1790",
+  "bundleVersion": "2026.11.21.4134",
   "bundleUrl": "https://raw.githubusercontent.com/t1m0nch1k/immersio/main/updates/bundle.zip",
-  "bundleSha256": "bd0c665394b4ad6515304046c57a1f441b49948463fe704b7db01c8fb25b3186",
-  "bundleSizeBytes": 284013,
+  "bundleSha256": "7938382186e08d3d147e820691119bca1d50bdf08fd0d8e0a573d20420ff5490",
+  "bundleSizeBytes": 285140,
   "apkUrl": "https://raw.githubusercontent.com/t1m0nch1k/immersio/main/updates/app-release.apk",
   "changelog": "• Озвучка уроков на иврите и казахском\n• Приложение теперь устанавливается и работает офлайн\n• Загрузка стала заметно быстрее\n• Все 11 языков на главной странице",
-  "releasedAt": "2026-11-21T03:29:50.982Z"
+  "releasedAt": "2026-11-21T04:08:54.674Z"
 }
