@@ -30,19 +30,23 @@ from urllib.request import Request, urlopen
 import edge_tts
 
 
+# An env var that exists but is empty must count as unset: os.getenv
+# returns "" for it, and "" is not a valid voice or rate (empty
+# EDGE_TTS_RATE placeholders in the Vercel dashboard once broke
+# Edge-TTS for every language this way).
 VOICES = {
-    "en": os.getenv("EDGE_TTS_EN_VOICE", "en-US-EmmaNeural"),
-    "es": os.getenv("EDGE_TTS_ES_VOICE", "es-ES-ElviraNeural"),
-    "de": os.getenv("EDGE_TTS_DE_VOICE", "de-DE-KatjaNeural"),
-    "fr": os.getenv("EDGE_TTS_FR_VOICE", "fr-FR-DeniseNeural"),
-    "it": os.getenv("EDGE_TTS_IT_VOICE", "it-IT-ElsaNeural"),
-    "ja": os.getenv("EDGE_TTS_JA_VOICE", "ja-JP-NanamiNeural"),
-    "sk": os.getenv("EDGE_TTS_VOICE", "sk-SK-ViktoriaNeural"),
-    "cs": os.getenv("EDGE_TTS_CS_VOICE", "cs-CZ-VlastaNeural"),
-    "he": os.getenv("EDGE_TTS_HE_VOICE", "he-IL-HilaNeural"),
-    "kk": os.getenv("EDGE_TTS_KK_VOICE", "kk-KZ-AigulNeural"),
+    "en": (os.getenv("EDGE_TTS_EN_VOICE") or "en-US-EmmaNeural"),
+    "es": (os.getenv("EDGE_TTS_ES_VOICE") or "es-ES-ElviraNeural"),
+    "de": (os.getenv("EDGE_TTS_DE_VOICE") or "de-DE-KatjaNeural"),
+    "fr": (os.getenv("EDGE_TTS_FR_VOICE") or "fr-FR-DeniseNeural"),
+    "it": (os.getenv("EDGE_TTS_IT_VOICE") or "it-IT-ElsaNeural"),
+    "ja": (os.getenv("EDGE_TTS_JA_VOICE") or "ja-JP-NanamiNeural"),
+    "sk": (os.getenv("EDGE_TTS_VOICE") or "sk-SK-ViktoriaNeural"),
+    "cs": (os.getenv("EDGE_TTS_CS_VOICE") or "cs-CZ-VlastaNeural"),
+    "he": (os.getenv("EDGE_TTS_HE_VOICE") or "he-IL-HilaNeural"),
+    "kk": (os.getenv("EDGE_TTS_KK_VOICE") or "kk-KZ-AigulNeural"),
 }
-RATE = os.getenv("EDGE_TTS_RATE", "-12%")
+RATE = (os.getenv("EDGE_TTS_RATE") or "-12%")
 MAX_TEXT_LENGTH = 500
 
 # Hard upstream timeouts: the function is capped at maxDuration 30s, so a
@@ -150,10 +154,9 @@ async def synthesize(text: str, voice: str) -> bytes:
 
 
 def google_fallback(text: str, lang: str) -> bytes:
-    target_lang = "jap" if lang == "ja" else lang
     url = (
         "https://translate.google.com/translate_tts?ie=UTF-8&q="
-        f"{quote(text)}&tl={target_lang}&client=tw-ob"
+        f"{quote(text)}&tl={lang}&client=tw-ob"
     )
     request = Request(
         url,
