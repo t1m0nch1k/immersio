@@ -331,28 +331,6 @@ export const LISTENING_LIBRARY: Record<LanguageCode, ListeningItem[]> = {
       minutes: 12,
     },
   ],
-  ba: [
-    {
-      id: 'ba-yuldash-radio',
-      title: 'Юлдаш радиоһы · Аудиояҙмалар',
-      description: 'Передачи на башкирском языке, интервью и рассказы с естественной речью.',
-      source: 'Радио Юлдаш',
-      url: 'https://yuldashradio.ru/',
-      type: 'audio',
-      level: 1,
-      minutes: 10,
-    },
-    {
-      id: 'ba-ertegiler',
-      title: 'Башҡорт халыҡ әкиәттәре · Сказки',
-      description: 'Народные башкирские сказки в выразительном аудиоисполнении.',
-      source: 'Башҡортостан мәҙәниәте',
-      url: 'https://kitaptar.bashkort.org/',
-      type: 'audiobook',
-      level: 2,
-      minutes: 12,
-    },
-  ],
 };
 
 const emptyDayActivity = (): ListeningDayActivity => ({

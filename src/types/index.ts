@@ -1,6 +1,6 @@
 import type { Route } from '../routes';
 
-export type LanguageCode = 'en' | 'es' | 'de' | 'fr' | 'it' | 'ja' | 'sk' | 'cs' | 'he' | 'kk' | 'ba';
+export type LanguageCode = 'en' | 'es' | 'de' | 'fr' | 'it' | 'ja' | 'sk' | 'cs' | 'he' | 'kk';
 
 export interface Language {
   code: LanguageCode;
@@ -73,7 +73,6 @@ export interface Word {
   cs?: string;
   he?: string;
   kk?: string;
-  ba?: string;
   lvl: 1 | 2 | 3 | 4; // 1=A1, 2=A2, 3=B1, 4=B2/C1
   cat: WordCategory;
   exampleRu?: string;

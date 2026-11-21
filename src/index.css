@@ -578,6 +578,23 @@ header {
   color: var(--ink);
 }
 
+/*
+ * On a narrow phone the menu is 220px wide while its button sits
+ * mid-header, so anchoring it to the button overflows one viewport edge
+ * (right when signed in, left as a guest). Pin it to the viewport instead.
+ */
+@media (max-width: 920px) {
+  .hmenu {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: 60px;
+    min-width: 0;
+    max-height: calc(100dvh - 72px);
+    overflow-y: auto;
+  }
+}
+
 .mi {
   display: flex;
   align-items: center;

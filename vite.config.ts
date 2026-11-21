@@ -146,9 +146,6 @@ export default defineConfig(({ mode }) => {
     cs: env.EDGE_TTS_CS_VOICE || 'cs-CZ-VlastaNeural',
     he: env.EDGE_TTS_HE_VOICE || 'he-IL-HilaNeural',
     kk: env.EDGE_TTS_KK_VOICE || 'kk-KZ-AigulNeural'
-    // Bashkir ("ba") is deliberately absent: no Edge-TTS voice exists for
-    // it. The client skips this proxy for "ba" and uses browser speech
-    // synthesis instead (see audioService).
   };
   const edgeTtsRate = env.EDGE_TTS_RATE || '-12%';
 
@@ -263,11 +260,6 @@ export default defineConfig(({ mode }) => {
             // Same whitelist as production (api/tts.py VOICES keys): an unknown
             // language must fail loudly instead of silently reading the text
             // with the Japanese voice.
-            if (lang === 'ba') {
-              res.statusCode = 400;
-              res.end('Bashkir has no Edge-TTS voice');
-              return;
-            }
             if (!Object.prototype.hasOwnProperty.call(edgeTtsVoices, lang)) {
               res.statusCode = 400;
               res.end('Unsupported language');

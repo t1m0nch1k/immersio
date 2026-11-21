@@ -11,6 +11,7 @@ const api = readFileSync('api/tts.py', 'utf-8');
 const vite = readFileSync('vite.config.ts', 'utf-8');
 const envExample = readFileSync('.env.example', 'utf-8');
 const audio = readFileSync('src/services/audioService.ts', 'utf-8');
+const types = readFileSync('src/types/index.ts', 'utf-8');
 
 // 1. Production voices (api/tts.py): Hebrew and Kazakh are present.
 const apiVoices = Object.fromEntries(
@@ -19,11 +20,12 @@ const apiVoices = Object.fromEntries(
 check(apiVoices.he === 'he-IL-HilaNeural', 'api/tts.py uses he-IL-HilaNeural for Hebrew, got ' + apiVoices.he);
 check(apiVoices.kk === 'kk-KZ-AigulNeural', 'api/tts.py uses kk-KZ-AigulNeural for Kazakh, got ' + apiVoices.kk);
 
-// 2. Bashkir is deliberately absent from the production voices: no
-// Edge / Azure / Google neural voice exists for it, so a fake voice here
-// would mispronounce Bashkir-specific letters.
-check(!('ba' in apiVoices), 'api/tts.py must not invent an Edge voice for Bashkir');
-check(api.includes('Bashkir has no Edge-TTS voice'), 'api/tts.py fails fast for Bashkir with a clear message');
+// 2. Bashkir is removed, not faked: no 'ba' code anywhere in the language
+// type, the client, or the server — a request for it hits the generic
+// "Unsupported language" path, never a special case.
+check(!types.includes("'ba'"), 'LanguageCode must not include Bashkir');
+check(!audio.includes("'ba'"), 'audioService must not reference Bashkir');
+check(!api.includes('Bashkir'), 'api/tts.py must not reference Bashkir');
 
 // 3. Local dev proxy (vite.config.ts) agrees with production on both voices.
 const viteVoices = Object.fromEntries(
@@ -31,16 +33,15 @@ const viteVoices = Object.fromEntries(
 );
 check(viteVoices.he === apiVoices.he, 'vite.config.ts Hebrew voice matches api/tts.py');
 check(viteVoices.kk === apiVoices.kk, 'vite.config.ts Kazakh voice matches api/tts.py');
-check(vite.includes("lang === 'ba'"), 'vite.config.ts fails fast for Bashkir');
 
 // 4. The new voices are documented in .env.example.
 check(envExample.includes('EDGE_TTS_HE_VOICE=he-IL-HilaNeural'), '.env.example documents the Hebrew voice');
 check(envExample.includes('EDGE_TTS_KK_VOICE=kk-KZ-AigulNeural'), '.env.example documents the Kazakh voice');
-check(envExample.includes('No EDGE_TTS_BA_VOICE'), '.env.example explains why there is no Bashkir voice');
 
-// 5. The client skips the server for Bashkir and falls back through the
-// device voices: ba-RU, then Kazakh (closest Turkic neighbour), then Russian.
-check(audio.includes("if (langCode === 'ba') return false;"), 'audioService skips the server proxy for Bashkir');
-check(audio.includes("'kk-KZ', 'ru-RU'"), 'audioService falls back from Bashkir to kk-KZ then ru-RU');
+// 5. In the Android shell the app is served from the local appassets origin,
+// where a relative /api/tts does not exist and the device has no Kazakh
+// voice — so the client must use the absolute Vercel proxy there.
+check(audio.includes("const TTS_PROXY_BASE = 'https://immersio-five.vercel.app'"), 'audioService points the Android shell at the live Vercel proxy');
+check(audio.includes("isAndroidShell() ? TTS_PROXY_BASE : ''"), 'audioService uses the absolute proxy only in the Android shell');
 
-console.log(`PASS: ${count} TTS voice cases — Hebrew and Kazakh on Edge-TTS, Bashkir honestly without a fake voice.`);
+console.log(`PASS: ${count} TTS voice cases — Hebrew and Kazakh on Edge-TTS, Kazakh reachable from Android, Bashkir removed.`);

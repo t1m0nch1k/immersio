@@ -3,7 +3,6 @@ import { SLOVAK_TRANSLATIONS } from './slovak';
 import { CZECH_TRANSLATIONS } from './czech';
 import { HEBREW_TRANSLATIONS } from './hebrew';
 import { KAZAKH_TRANSLATIONS } from './kazakh';
-import { BASHKIR_TRANSLATIONS } from './bashkir';
 import { EXPANDED_WORDS } from './expandedWords';
 import { LESSON_LINKED_GENERATED_IDS } from './lessonLinkedWords';
 
@@ -218,7 +217,6 @@ WORDS.forEach((word) => {
   if (!word.cs) word.cs = CZECH_TRANSLATIONS[word.id] || word.en;
   if (!word.he) word.he = HEBREW_TRANSLATIONS[word.id] || word.en;
   if (!word.kk) word.kk = KAZAKH_TRANSLATIONS[word.id] || word.en;
-  if (!word.ba) word.ba = BASHKIR_TRANSLATIONS[word.id] || word.en;
 });
 
 export const WORD_MAP = Object.fromEntries(WORDS.map((w) => [w.id, w]));

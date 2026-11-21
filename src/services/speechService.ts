@@ -17,7 +17,6 @@ export const SPEECH_LANG_MAP: Record<LanguageCode, string> = {
   cs: 'cs-CZ',
   he: 'he-IL',
   kk: 'kk-KZ',
-  ba: 'ba-RU',
 };
 
 export function isSpeechRecognitionSupported(): boolean {

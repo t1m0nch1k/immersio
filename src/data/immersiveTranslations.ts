@@ -283,18 +283,6 @@ const KAZAKH_LESSONS: Record<string, string[]> = {
   ],
 };
 
-const BASHKIR_LESSONS: Record<string, string[]> = {
-  l1: [
-    'Иртән иртә мен тәҙрәне асам һәм ҡояшты күрәм.',
-    'Бесәйем әле өҫтәлдә йоҡлай, әммә эт мине ишек янында көтә.',
-    'Мин аш-һыу бүлмәһенә барам һәм иртәнге аш әҙерләйем: яңы икмәк, сыр һәм ҡайнар кофе.',
-    'Тиҙҙән ғаиләм уяныр.',
-    'Мин бындай тыныс һәм йылы көндәрҙе яратам.',
-    'Аҙаҡ китап менән телефонды алам, куртка кейәм һәм өйҙән сығам.',
-    'Урамда саф ел, һәм мин һиҙәм: был яҡшы көн буласаҡ.',
-  ],
-};
-
 export const getImmersiveLessonText = (lessonId: string, lang: LanguageCode): string[] | null => {
   if (lang === 'sk') {
     return SLOVAK_LESSONS[lessonId] || null;
@@ -310,9 +298,6 @@ export const getImmersiveLessonText = (lessonId: string, lang: LanguageCode): st
   }
   if (lang === 'kk') {
     return KAZAKH_LESSONS[lessonId] || null;
-  }
-  if (lang === 'ba') {
-    return BASHKIR_LESSONS[lessonId] || null;
   }
   return null;
 };

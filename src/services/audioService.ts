@@ -1,6 +1,14 @@
 import { LanguageCode } from '../types';
 import { LANGUAGES } from '../data/languages';
 
+// The production TTS proxy lives on Vercel (the repo's deployment, see the
+// homepage on GitHub). The Android shell cannot use a relative /api/tts:
+// its origin is the local appassets host, which serves no TTS endpoint.
+const TTS_PROXY_BASE = 'https://immersio-five.vercel.app';
+const isAndroidShell = (): boolean =>
+  typeof window !== 'undefined' &&
+  typeof (window as unknown as { AndroidHost?: unknown }).AndroidHost !== 'undefined';
+
 class AudioService {
   private audioCtx: AudioContext | null = null;
   private soundEnabled: boolean = true;
@@ -50,14 +58,7 @@ class AudioService {
     if (!('speechSynthesis' in window)) return undefined;
     if (this.voices.length === 0) this.voices = window.speechSynthesis.getVoices();
 
-    // Bashkir has no Edge-TTS voice and rarely a native browser voice
-    // either. Kazakh is the closest neighbour (Kipchak Turkic, Cyrillic
-    // script); Russian is the last resort — it reads the shared Cyrillic
-    // letters, but not the Bashkir-specific ones (Ғ, Ҙ, Ҡ, Ң, Ҫ, Ү, Һ, Ә, Ө).
-    const localesToTry =
-      langCode === 'ba'
-        ? [LANGUAGES[langCode].speechLang.toLowerCase(), 'kk-KZ', 'ru-RU']
-        : [LANGUAGES[langCode].speechLang.toLowerCase()];
+    const localesToTry = [LANGUAGES[langCode].speechLang.toLowerCase()];
 
     for (const locale of localesToTry) {
       const language = locale.split('-')[0];
@@ -93,14 +94,12 @@ class AudioService {
   }
 
   private speakFromServer(text: string, langCode: LanguageCode): boolean {
-    // Bashkir has no Edge-TTS voice (see api/tts.py): do not waste a
-    // network round-trip on a request the server must reject — go straight
-    // to the browser voice in speak().
-    if (langCode === 'ba') return false;
-
     const targetLang = langCode;
     try {
-      const ttsUrl = `/api/tts?text=${encodeURIComponent(text)}&lang=${targetLang}`;
+      // On the web the proxy is same-origin; in the Android shell it is the
+      // live Vercel deployment, because the appassets origin has no /api/tts
+      // and the device's own speech synthesis has no Kazakh voice.
+      const ttsUrl = `${isAndroidShell() ? TTS_PROXY_BASE : ''}/api/tts?text=${encodeURIComponent(text)}&lang=${targetLang}`;
       const audio = new Audio(ttsUrl);
       this.currentAudio = audio;
 
@@ -120,10 +119,9 @@ class AudioService {
   }
 
   /**
-   * Speak a word in the requested language. All languages except Bashkir
-   * prefer the Edge-TTS server proxy for consistent Microsoft Neural
-   * pronunciation; Bashkir has no Edge voice, so it goes straight to the
-   * device's speech synthesis (ba-RU, then kk-KZ, then ru-RU).
+   * Speak a word in the requested language. The Edge-TTS server proxy is
+   * preferred for consistent Microsoft Neural pronunciation; in the Android
+   * shell it is reached at its absolute Vercel URL (see speakFromServer).
    */
   public speak(text: string, langCode: LanguageCode) {
     if (!this.soundEnabled || !text.trim()) return;

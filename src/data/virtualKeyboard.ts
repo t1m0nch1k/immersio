@@ -73,13 +73,4 @@ export const VIRTUAL_KEYBOARDS: Record<LanguageCode, VirtualKeyboardLayout> = {
     ],
     hasCase: true,
   },
-  ba: {
-    rows: [
-      ['ә', 'ө', 'ү', 'ғ', 'ҡ', 'ң', 'ҙ', 'ҫ', 'һ'],
-      ['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х'],
-      ['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'],
-      ['я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю']
-    ],
-    hasCase: true,
-  },
 };

@@ -176,16 +176,6 @@ const BASE_GRAMMAR: Record<LanguageCode, GrammarLesson[]> = {
       { target: 'менің досым', ru: 'мой друг' }
     ])
   ],
-  ba: [
-    lesson('ba-present', 'Настоящее время глагола', 1, 'Личные окончания настоящего времени: мин эшләйем (я работаю), һин эшләйһең (ты работаешь).', [
-      { target: 'Мин эшләйем.', ru: 'Я работаю.' },
-      { target: 'Һин эшләйһең.', ru: 'Ты работаешь.' }
-    ]),
-    lesson('ba-possession', 'Категория притяжательности', 1, 'Принадлежность выражается притяжательными аффиксами: минең китабым (моя книга), минең дуҫым (мой друг).', [
-      { target: 'минең китабым', ru: 'моя книга' },
-      { target: 'минең дуҫым', ru: 'мой друг' }
-    ])
-  ]
 };
 
 export const GRAMMAR: Record<LanguageCode, GrammarLesson[]> = (Object.keys(BASE_GRAMMAR) as LanguageCode[]).reduce(
