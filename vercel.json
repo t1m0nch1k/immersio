@@ -5,7 +5,6 @@
   "outputDirectory": "dist",
   "functions": {
     "api/tts.py": {
-      "runtime": "python3.12",
       "maxDuration": 30,
       "excludeFiles": "{tests/**,redesign-example/**,dist/**,node_modules/**,*.html}"
     }
