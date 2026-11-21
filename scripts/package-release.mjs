@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, stat, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, stat, writeFile, copyFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,13 +19,25 @@ await mkdir(updatesDir, { recursive: true });
 const bundleZipPath = resolve(updatesDir, 'bundle.zip');
 
 console.log('===> 3. Packaging bundle.zip...');
-// Use tar to package www directory files
+// execFileSync spawns without a shell, so a '*' glob is never expanded:
+// list the www entries explicitly instead. Prefer the `zip` CLI, which
+// writes a real ZIP archive everywhere; GNU tar would silently write a
+// POSIX tar under a .zip name (only bsdtar on Windows writes a real ZIP).
+// The old archive is removed first: `zip` updates in place, and stale
+// hashed chunks from a previous build must not survive into the new one.
+const wwwEntries = await readdir(wwwDir);
+await rm(bundleZipPath, { force: true });
 try {
-  execFileSync('tar', ['-a', '-c', '-f', bundleZipPath, '*'], { cwd: wwwDir, stdio: 'inherit' });
+  execFileSync('zip', ['-qr', bundleZipPath, ...wwwEntries], { cwd: wwwDir, stdio: 'inherit' });
 } catch (e) {
-  // Fallback to powershell on Windows if tar fails
-  console.log('Falling back to PowerShell Compress-Archive...');
-  execFileSync('powershell', ['-Command', `Compress-Archive -Path '${wwwDir}\\*' -DestinationPath '${bundleZipPath}' -Force`], { stdio: 'inherit' });
+  console.log('`zip` CLI not available, falling back to tar...');
+  try {
+    execFileSync('tar', ['-a', '-c', '-f', bundleZipPath, ...wwwEntries], { cwd: wwwDir, stdio: 'inherit' });
+  } catch (e2) {
+    // Fallback to powershell on Windows if tar fails
+    console.log('Falling back to PowerShell Compress-Archive...');
+    execFileSync('powershell', ['-Command', `Compress-Archive -Path '${wwwDir}\\*' -DestinationPath '${bundleZipPath}' -Force`], { stdio: 'inherit' });
+  }
 }
 
 console.log('===> 4. Calculating bundle checksum & stats...');
@@ -66,7 +78,7 @@ const manifest = {
   bundleSizeBytes: bundleStats.size,
   apkUrl: targetApkUrl,
   apkSha256: apkSha256 || undefined,
-  changelog: '🎉 Релиз v2.1.0 (OTA Live Update):\n• Доставка онлайн-обновлений без сторонних маркетов\n• Новый бейдж версии v2.1 в шапке\n• Закрепление ошибок и тренировка произношения',
+  changelog: '• Озвучка уроков на иврите и казахском\n• Приложение теперь устанавливается и работает офлайн\n• Загрузка стала заметно быстрее\n• Все 11 языков на главной странице',
   releasedAt: new Date().toISOString()
 };
 
