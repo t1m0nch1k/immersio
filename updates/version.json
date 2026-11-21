@@ -1,12 +1,11 @@
 {
   "appVersion": "2.1.0",
   "appBuild": 1,
-  "bundleVersion": "2026.10.08.1791475652",
+  "bundleVersion": "2026.11.21.1790",
   "bundleUrl": "https://raw.githubusercontent.com/t1m0nch1k/immersio/main/updates/bundle.zip",
-  "bundleSha256": "de37aab8a3719acd229351242bf3076c57d1d91631c17f864ebf92c4fc6d183b",
-  "bundleSizeBytes": 436317,
+  "bundleSha256": "bd0c665394b4ad6515304046c57a1f441b49948463fe704b7db01c8fb25b3186",
+  "bundleSizeBytes": 284013,
   "apkUrl": "https://raw.githubusercontent.com/t1m0nch1k/immersio/main/updates/app-release.apk",
-  "apkSha256": "a01408f09351f24307604e784b24ebba569770840c7f2c022bfe303cc965f59e",
-  "changelog": "• Более удобное выделение слов без плашек\n• Грамматические пояснения для служебных слов\n• Понятное сообщение для слов без перевода\n• Иврит, казахский и башкирский языки",
-  "releasedAt": "2026-10-08T16:07:32.358044Z"
+  "changelog": "• Озвучка уроков на иврите и казахском\n• Приложение теперь устанавливается и работает офлайн\n• Загрузка стала заметно быстрее\n• Все 11 языков на главной странице",
+  "releasedAt": "2026-11-21T03:29:50.982Z"
 }
