@@ -11,6 +11,8 @@ dist/
 # Logs and local tooling
 *.log
 coverage/
+test-results/
+playwright-report/
 .DS_Store
 Thumbs.db
 
