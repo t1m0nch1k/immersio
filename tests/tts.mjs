@@ -18,7 +18,7 @@ const apiVoices = Object.fromEntries(
   [...api.matchAll(/"([a-z]{2})": \(os\.getenv\("[A-Z_]+"\) or "([^"]+)"\)/g)].map((m) => [m[1], m[2]]),
 );
 check(apiVoices.he === 'he-IL-HilaNeural', 'api/tts.py uses he-IL-HilaNeural for Hebrew, got ' + apiVoices.he);
-check(apiVoices.kk === 'kk-KZ-AigulNeural', 'api/tts.py uses kk-KZ-AigulNeural for Kazakh, got ' + apiVoices.kk);
+check(apiVoices.kk === 'kk-KZ-DauletNeural', 'api/tts.py uses kk-KZ-DauletNeural for Kazakh, got ' + apiVoices.kk);
 
 // 1b. An env var that exists but is empty must fall back to the default:
 // os.getenv returns "" for it, and "" is not a valid voice or rate. Empty
@@ -49,7 +49,7 @@ check(viteVoices.kk === apiVoices.kk, 'vite.config.ts Kazakh voice matches api/t
 
 // 4. The new voices are documented in .env.example.
 check(envExample.includes('EDGE_TTS_HE_VOICE=he-IL-HilaNeural'), '.env.example documents the Hebrew voice');
-check(envExample.includes('EDGE_TTS_KK_VOICE=kk-KZ-AigulNeural'), '.env.example documents the Kazakh voice');
+check(envExample.includes('EDGE_TTS_KK_VOICE=kk-KZ-DauletNeural'), '.env.example documents the Kazakh voice');
 
 // 5. In the Android shell the app is served from the local appassets origin,
 // where a relative /api/tts does not exist and the device has no Kazakh

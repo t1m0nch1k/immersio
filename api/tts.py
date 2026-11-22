@@ -44,7 +44,7 @@ VOICES = {
     "sk": (os.getenv("EDGE_TTS_VOICE") or "sk-SK-ViktoriaNeural"),
     "cs": (os.getenv("EDGE_TTS_CS_VOICE") or "cs-CZ-VlastaNeural"),
     "he": (os.getenv("EDGE_TTS_HE_VOICE") or "he-IL-HilaNeural"),
-    "kk": (os.getenv("EDGE_TTS_KK_VOICE") or "kk-KZ-AigulNeural"),
+    "kk": (os.getenv("EDGE_TTS_KK_VOICE") or "kk-KZ-DauletNeural"),
 }
 RATE = (os.getenv("EDGE_TTS_RATE") or "-12%")
 MAX_TEXT_LENGTH = 500

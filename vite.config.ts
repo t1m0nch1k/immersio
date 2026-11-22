@@ -145,7 +145,7 @@ export default defineConfig(({ mode }) => {
     sk: env.EDGE_TTS_VOICE || 'sk-SK-ViktoriaNeural',
     cs: env.EDGE_TTS_CS_VOICE || 'cs-CZ-VlastaNeural',
     he: env.EDGE_TTS_HE_VOICE || 'he-IL-HilaNeural',
-    kk: env.EDGE_TTS_KK_VOICE || 'kk-KZ-AigulNeural'
+    kk: env.EDGE_TTS_KK_VOICE || 'kk-KZ-DauletNeural'
   };
   const edgeTtsRate = env.EDGE_TTS_RATE || '-12%';
 
