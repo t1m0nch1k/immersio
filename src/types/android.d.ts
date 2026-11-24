@@ -2,6 +2,7 @@ export interface AndroidHostInterface {
   openExternal?: (url: string) => void;
   setTheme?: (dark: boolean) => void;
   openAuth?: (url: string) => void;
+  getAuthRedirectUri?: () => string;
   getAppInfo?: () => string;
   downloadAndApplyBundle?: (bundleUrl: string, expectedSha256: string, newBundleVersion: string) => void;
   reloadApp?: () => void;

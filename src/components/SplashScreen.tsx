@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { hapticService } from '../services/hapticService';
+import { BrandMark } from './BrandMark';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -47,52 +48,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
         {/* The Buoy / Brand Mark */}
         <div className="splash-mark">
-          {/* 3 Organic Swaying Waves SVG */}
-          <svg
-            className="splash-waves-svg"
-            viewBox="0 0 100 100"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <defs>
-              <clipPath id="splashMarkClip">
-                <rect x="0" y="0" width="100" height="100" rx="24" />
-              </clipPath>
-            </defs>
-
-            <g clipPath="url(#splashMarkClip)">
-              {/* Wave 1: Top Surf */}
-              <path
-                className="splash-wave splash-wave-top"
-                d="M -50 32 Q -25 24 0 32 T 50 32 T 100 32 T 150 32"
-                stroke="currentColor"
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              {/* Wave 2: Middle Crest */}
-              <path
-                className="splash-wave splash-wave-mid"
-                d="M -50 50 Q -25 42 0 50 T 50 50 T 100 50 T 150 50"
-                stroke="currentColor"
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              {/* Wave 3: Deep Swell */}
-              <path
-                className="splash-wave splash-wave-bot"
-                d="M -50 68 Q -25 60 0 68 T 50 68 T 100 68 T 150 68"
-                stroke="currentColor"
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </g>
-          </svg>
+          <BrandMark />
         </div>
 
         {/* App Title with typography transition */}

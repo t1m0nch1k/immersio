@@ -16,7 +16,7 @@
         android:supportsRtl="true">
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="ru.pogruzhenie.app.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
@@ -42,7 +42,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="ru.pogruzhenie.app" android:host="auth-callback" />
+                <data android:scheme="${applicationId}" android:host="auth-callback" />
             </intent-filter>
         </activity>
 

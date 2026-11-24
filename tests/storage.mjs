@@ -1103,6 +1103,42 @@ check(weakLessonTitle(allDoneWeak) === 'Закрепить слабую тему
 check(planTask(allDoneWeak, 'lesson').targetId === api.LESSONS[0].id, 'the lowest-scoring lesson is chosen');
 count += 2;
 
+const backup = api.getInitialState();
+backup.onboarded = true;
+backup.xp = 345;
+backup.languages.en.learnedWords = ['apple'];
+backup.languages.en.doneLessons.lesson = { score: 8, pct: 80, date: '2026-02-20' };
+backup.account = { ...backup.account, isAuth: true, userId: 'source-account' };
+
+const current = api.getInitialState();
+current.xp = 12;
+current.account = { ...current.account, isAuth: true, userId: 'destination-account' };
+write(current);
+const savedBeforeImport = localStorage.getItem(KEY);
+const parsedBackup = api.StorageService.parseProgressBackup('\uFEFF' + JSON.stringify(backup));
+assert.equal(localStorage.getItem(KEY), savedBeforeImport, 'preview leaves progress untouched');
+assert.throws(() => api.StorageService.parseProgressBackup('{"xp":0,"languages":{}}'));
+assert.throws(() => api.StorageService.parseProgressBackup('not JSON'));
+assert.equal(localStorage.getItem(KEY), savedBeforeImport, 'invalid backups leave progress untouched');
+
+let notified;
+api.StorageService.onSave((state) => { notified = state; });
+const setItem = localStorage.setItem;
+try {
+  localStorage.setItem = () => { throw new Error('Storage full'); };
+  assert.throws(() => api.StorageService.restoreProgress(parsedBackup), /Storage full/);
+  assert.equal(notified, undefined, 'a failed write does not notify the sync mirror');
+} finally {
+  localStorage.setItem = setItem;
+}
+const restored = api.StorageService.restoreProgress(parsedBackup);
+api.StorageService.onSave(null);
+assert.equal(notified, restored, 'a successful restore uses the usual save notification');
+assert.equal(load().xp, backup.xp);
+assert.deepEqual(load().languages, parsedBackup.languages);
+assert.equal(load().account.userId, current.account.userId, 'the destination account is preserved');
+count += 10;
+
 api.StorageService.reset();
 assert.equal(localStorage.getItem(KEY), null, 'reset clears the payload');
 assert.deepEqual(load(), api.getInitialState(), 'the app starts fresh after a reset');

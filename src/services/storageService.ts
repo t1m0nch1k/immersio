@@ -278,80 +278,115 @@ export class StorageService {
       if (!raw) return getInitialState();
       const parsed = JSON.parse(raw);
       if (!isPlainObject(parsed)) return getInitialState();
-      const initial = getInitialState();
-
-      // Only the languages that really exist in the state are hydrated, and only
-      // for supported codes: `en` is always present because `getInitialState`
-      // creates it, everything else comes from the stored progress.
-      const rawLanguages = isPlainObject(parsed.languages) ? parsed.languages : {};
-      const langKeys = Object.keys(rawLanguages).filter((key): key is LanguageCode =>
-        (SUPPORTED_LANGUAGES as string[]).includes(key)
-      );
-      if (!langKeys.includes('en')) langKeys.unshift('en');
-      const languages: UserState['languages'] = {};
-      langKeys.forEach((lang) => {
-        languages[lang] = sanitizeLanguageProgress(rawLanguages[lang]);
-      });
-
-      const parsedAccount = isPlainObject(parsed.account) ? parsed.account : {};
-      const parsedStreak = isPlainObject(parsed.streak) ? parsed.streak : {};
-      const subscriptionPlan = parsedAccount.subscriptionPlan;
-      const storedLang = parsed.currentLang;
-      const isOnboarded = parsed.onboarded === true;
-      const darkMode = parsed.darkMode === true;
-      const soundEnabled = parsed.soundEnabled;
-      const userId = parsedAccount.userId;
-
-      return {
-        onboarded: isOnboarded,
-        name: typeof parsed.name === 'string' ? parsed.name : initial.name,
-        avatar: isValidAvatar(parsed.avatar) ? parsed.avatar : initial.avatar,
-        currentLang: typeof storedLang === 'string' && (SUPPORTED_LANGUAGES as string[]).includes(storedLang)
-          ? storedLang as LanguageCode
-          : initial.currentLang,
-        darkMode,
-        soundEnabled: typeof soundEnabled === 'boolean' ? soundEnabled : initial.soundEnabled,
-        hapticEnabled: typeof parsed.hapticEnabled === 'boolean' ? parsed.hapticEnabled : initial.hapticEnabled,
-        reminderEnabled: typeof parsed.reminderEnabled === 'boolean' ? parsed.reminderEnabled : initial.reminderEnabled,
-        reminderTime: typeof parsed.reminderTime === 'string' && /^\d{2}:\d{2}$/.test(parsed.reminderTime) ? parsed.reminderTime : initial.reminderTime,
-        account: {
-          email: typeof parsedAccount.email === 'string' ? parsedAccount.email : initial.account.email,
-          name: typeof parsedAccount.name === 'string' ? parsedAccount.name : initial.account.name,
-          // A session is only believed if it names a user. Older builds wrote
-          // `isAuth: true` with no id and nothing that could be re-verified, and
-          // keeping the flag would promise a sign-in that cannot be checked.
-          isAuth: parsedAccount.isAuth === true && typeof userId === 'string' && userId.length > 0,
-          // Paid access is disabled for the free catalogue phase.
-          tier: 'free',
-          // Optional fields stay only when they still have the declared type.
-          ...(typeof userId === 'string' && userId.length > 0 ? { userId } : {}),
-          ...(isNonEmptyString(parsedAccount.subscribedDate) ? { subscribedDate: parsedAccount.subscribedDate } : {}),
-          ...(subscriptionPlan === 'monthly' || subscriptionPlan === 'yearly' || subscriptionPlan === 'lifetime'
-            ? { subscriptionPlan }
-            : {}),
-        },
-        languages,
-        xp: isNumberKey(parsed.xp) && parsed.xp >= 0 ? parsed.xp : initial.xp,
-        perfectCount: isNumberKey(parsed.perfectCount) && parsed.perfectCount >= 0 ? parsed.perfectCount : initial.perfectCount,
-        streak: {
-          current: isNumberKey(parsedStreak.current) && parsedStreak.current >= 0 ? parsedStreak.current : 0,
-          best: isNumberKey(parsedStreak.best) && parsedStreak.best >= 0 ? parsedStreak.best : 0,
-          lastActiveDate: typeof parsedStreak.lastActiveDate === 'string' ? parsedStreak.lastActiveDate : '',
-        },
-        history: Array.isArray(parsed.history) ? parsed.history.filter((day): day is string => typeof day === 'string') : [],
-        achievements: Array.isArray(parsed.achievements)
-          ? parsed.achievements.filter((id): id is string => typeof id === 'string')
-          : [],
-        customLessons: Array.isArray(parsed.customLessons)
-          ? parsed.customLessons
-            .map(sanitizeCustomLesson)
-            .filter((lesson): lesson is Lesson => lesson !== null)
-          : [],
-      };
+      return this.normalizeState(parsed);
     } catch (e) {
       console.warn('Failed to load state from localStorage', e);
       return getInitialState();
     }
+  }
+
+  public static parseProgressBackup(raw: string): UserState {
+    const parsed: unknown = JSON.parse(raw.replace(/^\uFEFF/, ''), (key, value: unknown) =>
+      key === '__proto__' || key === 'constructor' || key === 'prototype' ? undefined : value
+    );
+    if (!isPlainObject(parsed)
+      || typeof parsed.onboarded !== 'boolean'
+      || !isNumberKey(parsed.xp) || parsed.xp < 0
+      || !isPlainObject(parsed.streak)
+      || !isPlainObject(parsed.languages)
+      || !Object.entries(parsed.languages).some(([code, progress]) =>
+        (SUPPORTED_LANGUAGES as string[]).includes(code)
+        && isPlainObject(progress)
+        && Array.isArray(progress.learnedWords)
+        && isPlainObject(progress.doneLessons)
+        && isPlainObject(progress.srsData)
+      )
+    ) {
+      throw new Error('Invalid progress backup');
+    }
+
+    return this.normalizeState(parsed);
+  }
+
+  public static restoreProgress(backup: UserState): UserState {
+    const current = this.load();
+    const restored = { ...backup, onboarded: current.onboarded || backup.onboarded, account: current.account };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(restored));
+    notifySaved(restored);
+    return restored;
+  }
+
+  private static normalizeState(parsed: Record<string, unknown>): UserState {
+    const initial = getInitialState();
+
+    // Only the languages that really exist in the state are hydrated, and only
+    // for supported codes: `en` is always present because `getInitialState`
+    // creates it, everything else comes from the stored progress.
+    const rawLanguages = isPlainObject(parsed.languages) ? parsed.languages : {};
+    const langKeys = Object.keys(rawLanguages).filter((key): key is LanguageCode =>
+      (SUPPORTED_LANGUAGES as string[]).includes(key)
+    );
+    if (!langKeys.includes('en')) langKeys.unshift('en');
+    const languages: UserState['languages'] = {};
+    langKeys.forEach((lang) => {
+      languages[lang] = sanitizeLanguageProgress(rawLanguages[lang]);
+    });
+
+    const parsedAccount = isPlainObject(parsed.account) ? parsed.account : {};
+    const parsedStreak = isPlainObject(parsed.streak) ? parsed.streak : {};
+    const subscriptionPlan = parsedAccount.subscriptionPlan;
+    const storedLang = parsed.currentLang;
+    const isOnboarded = parsed.onboarded === true;
+    const darkMode = parsed.darkMode === true;
+    const soundEnabled = parsed.soundEnabled;
+    const userId = parsedAccount.userId;
+
+    return {
+      onboarded: isOnboarded,
+      name: typeof parsed.name === 'string' ? parsed.name : initial.name,
+      avatar: isValidAvatar(parsed.avatar) ? parsed.avatar : initial.avatar,
+      currentLang: typeof storedLang === 'string' && (SUPPORTED_LANGUAGES as string[]).includes(storedLang)
+        ? storedLang as LanguageCode
+        : initial.currentLang,
+      darkMode,
+      soundEnabled: typeof soundEnabled === 'boolean' ? soundEnabled : initial.soundEnabled,
+      hapticEnabled: typeof parsed.hapticEnabled === 'boolean' ? parsed.hapticEnabled : initial.hapticEnabled,
+      reminderEnabled: typeof parsed.reminderEnabled === 'boolean' ? parsed.reminderEnabled : initial.reminderEnabled,
+      reminderTime: typeof parsed.reminderTime === 'string' && /^\d{2}:\d{2}$/.test(parsed.reminderTime) ? parsed.reminderTime : initial.reminderTime,
+      account: {
+        email: typeof parsedAccount.email === 'string' ? parsedAccount.email : initial.account.email,
+        name: typeof parsedAccount.name === 'string' ? parsedAccount.name : initial.account.name,
+        // A session is only believed if it names a user. Older builds wrote
+        // `isAuth: true` with no id and nothing that could be re-verified, and
+        // keeping the flag would promise a sign-in that cannot be checked.
+        isAuth: parsedAccount.isAuth === true && typeof userId === 'string' && userId.length > 0,
+        // Paid access is disabled for the free catalogue phase.
+        tier: 'free',
+        // Optional fields stay only when they still have the declared type.
+        ...(typeof userId === 'string' && userId.length > 0 ? { userId } : {}),
+        ...(isNonEmptyString(parsedAccount.subscribedDate) ? { subscribedDate: parsedAccount.subscribedDate } : {}),
+        ...(subscriptionPlan === 'monthly' || subscriptionPlan === 'yearly' || subscriptionPlan === 'lifetime'
+          ? { subscriptionPlan }
+          : {}),
+      },
+      languages,
+      xp: isNumberKey(parsed.xp) && parsed.xp >= 0 ? parsed.xp : initial.xp,
+      perfectCount: isNumberKey(parsed.perfectCount) && parsed.perfectCount >= 0 ? parsed.perfectCount : initial.perfectCount,
+      streak: {
+        current: isNumberKey(parsedStreak.current) && parsedStreak.current >= 0 ? parsedStreak.current : 0,
+        best: isNumberKey(parsedStreak.best) && parsedStreak.best >= 0 ? parsedStreak.best : 0,
+        lastActiveDate: typeof parsedStreak.lastActiveDate === 'string' ? parsedStreak.lastActiveDate : '',
+      },
+      history: Array.isArray(parsed.history) ? parsed.history.filter((day): day is string => typeof day === 'string') : [],
+      achievements: Array.isArray(parsed.achievements)
+        ? parsed.achievements.filter((id): id is string => typeof id === 'string')
+        : [],
+      customLessons: Array.isArray(parsed.customLessons)
+        ? parsed.customLessons
+          .map(sanitizeCustomLesson)
+          .filter((lesson): lesson is Lesson => lesson !== null)
+        : [],
+    };
   }
 
   public static save(state: UserState): void {

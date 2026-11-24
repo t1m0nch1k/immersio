@@ -7,6 +7,7 @@ import { clearManualImmersion, isImmersionManual } from '../services/immersionPr
 import { Route } from '../routes';
 import { NAV_ITEMS, NavIcon, isNavItemActive } from '../navItems';
 import { Icon } from './icons';
+import { BrandMark } from './BrandMark';
 
 interface SidebarProps {
   currentRoute: Route;
@@ -87,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside className={isOpen ? 'drawer open' : 'drawer'} aria-hidden={!isOpen}>
         <div className="drawer-brand">
           <span className="mark" aria-hidden="true">
-            <Icon name="waves" strokeWidth={2.5} />
+            <BrandMark />
           </span>
           ПОГРУЖЕНИЕ
         </div>

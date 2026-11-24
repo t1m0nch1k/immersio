@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti';
 import { AVATARS, LANGUAGE_CODES, shuffle } from '../utils';
 import { buildRussianDistractors, getWord, WORDS_BY_LEVEL } from '../utils/words';
 import { Icon } from './icons';
+import { BrandMark } from './BrandMark';
 
 interface OnboardingModalProps {
   userState: UserState;
@@ -171,7 +172,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'Unbounded', fontWeight: 800, fontSize: '14px', marginBottom: '14px' }}>
               <div className="mark" style={{ width: '32px', height: '32px' }}>
-                <Icon name="waves" strokeWidth={2.5} />
+                <BrandMark />
               </div>
               ПОГРУЖЕНИЕ
             </div>

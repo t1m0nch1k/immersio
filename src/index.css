@@ -292,9 +292,10 @@ header {
   }
   .logo .logotext { display: none; }
   .logo { padding: 0; }
-  .hgroup {
+  header .hgroup {
     gap: 4px;
     justify-content: flex-end;
+    flex-wrap: wrap;
   }
   .hgroup .hchip {
     padding: 4px 8px;
@@ -315,6 +316,25 @@ header {
     width: 34px !important;
     height: 34px !important;
   }
+}
+
+@media (max-width: 600px) {
+  header {
+    gap: 4px;
+    padding-inline: 8px;
+  }
+
+  header .hgroup { gap: 3px; }
+
+  .hgroup .hchip {
+    gap: 4px;
+    padding-inline: 5px;
+  }
+
+  .hgroup .hchip b { font-size: 13px; }
+  .hgroup .btn.small { padding-inline: 8px; }
+  header .header-language { position: static; }
+  .hgroup .hmenu { top: calc(100% + 6px); left: 8px; right: auto; }
 }
 
 .header-back-btn {
@@ -454,28 +474,7 @@ header {
   box-shadow: 0 1px 0 var(--ink);
 }
 
-/* Subtle ocean wave sway inside the mark */
-.mark svg path {
-  transition: transform 0.3s ease;
-}
-
-.logo:hover .mark svg path:nth-child(1),
-.drawer-brand:hover .mark svg path:nth-child(1) {
-  animation: waveSubtleSway 1.8s ease-in-out infinite alternate;
-}
-.logo:hover .mark svg path:nth-child(2),
-.drawer-brand:hover .mark svg path:nth-child(2) {
-  animation: waveSubtleSway 2.2s ease-in-out infinite alternate-reverse 0.2s;
-}
-.logo:hover .mark svg path:nth-child(3),
-.drawer-brand:hover .mark svg path:nth-child(3) {
-  animation: waveSubtleSway 2.6s ease-in-out infinite alternate 0.4s;
-}
-
-@keyframes waveSubtleSway {
-  0% { transform: translateX(-1.5px); }
-  100% { transform: translateX(1.5px); }
-}
+.mark .brand-mark { width: 25px; height: 25px; }
 
 .hchip {
   display: inline-flex;
@@ -562,6 +561,8 @@ header {
   box-shadow: 0 1px 0 var(--ink);
   transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
+
+.header-language { position: relative; }
 
 .hmenu {
   position: absolute;
@@ -3188,54 +3189,10 @@ header .iconbtn .ic {
   }
 }
 
-.splash-waves-svg {
-  width: 72px;
-  height: 72px;
+.splash-mark .brand-mark {
+  width: 76px;
+  height: 76px;
   display: block;
-}
-
-/* The 3 undulating ocean waves */
-.splash-wave {
-  color: #1b2a23;
-}
-
-.splash-wave-top {
-  animation: waveFlowTop 2.2s ease-in-out infinite alternate;
-}
-
-.splash-wave-mid {
-  animation: waveFlowMid 2.6s ease-in-out infinite alternate 0.35s;
-}
-
-.splash-wave-bot {
-  animation: waveFlowBot 3.0s ease-in-out infinite alternate 0.7s;
-}
-
-@keyframes waveFlowTop {
-  0% {
-    transform: translateX(-16px) translateY(-1.5px);
-  }
-  100% {
-    transform: translateX(16px) translateY(1.5px);
-  }
-}
-
-@keyframes waveFlowMid {
-  0% {
-    transform: translateX(18px) translateY(1.5px);
-  }
-  100% {
-    transform: translateX(-18px) translateY(-1px);
-  }
-}
-
-@keyframes waveFlowBot {
-  0% {
-    transform: translateX(-14px) translateY(-1px);
-  }
-  100% {
-    transform: translateX(14px) translateY(1.2px);
-  }
 }
 
 .splash-brand {

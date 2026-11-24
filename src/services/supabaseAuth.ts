@@ -16,7 +16,7 @@ import { getSupabase, isSyncConfigured } from './supabase';
  */
 
 
-/** Must match `authScheme`/`authHost` in the Android manifest. */
+/** Callback used by older Android shells that lack getAuthRedirectUri. */
 export const ANDROID_REDIRECT_URI = 'ru.pogruzhenie.app://auth-callback';
 
 /** On the web the redirect comes back to the page itself. */
@@ -59,7 +59,10 @@ export const isAuthRedirect = (url: string): boolean => {
   }
 };
 
-const redirectUri = (): string => (isInAppShell() ? ANDROID_REDIRECT_URI : webRedirectUri());
+const redirectUri = (): string => {
+  if (!isInAppShell()) return webRedirectUri();
+  return window.AndroidHost?.getAuthRedirectUri?.() || ANDROID_REDIRECT_URI;
+};
 
 /**
  * Builds the consent URL without navigating anywhere.

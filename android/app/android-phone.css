@@ -27,20 +27,17 @@ button, [role="button"], a, input, select, textarea, .btn, .iconbtn, .hchip, .lc
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px 8px;
+    padding-block: 6px 8px;
   }
   header .logo { flex-shrink: 0; }
   .drawer .drawer-brand { font-size: 12px; }
   header .hspace, header .hchip.xp { display: none; }
   header .hmenu { left: 0; right: auto; max-width: calc(100vw - 24px); }
-  header .hgroup { gap: 4px !important; justify-content: flex-end !important; }
   header .iconbtn { width: 34px !important; height: 34px !important; flex-shrink: 0; }
   header .iconbtn .ic { width: 18px; height: 18px; }
   header .btn.small, header #avbtn, header .avatarbtn { flex-shrink: 0; }
-  header .btn.small { min-height: 34px; padding: 4px 10px; font-size: 12px; }
+  header .btn.small { min-height: 34px; padding-block: 4px; font-size: 12px; }
   header #avbtn, header .avatarbtn { width: 34px !important; height: 34px !important; }
-  header .hchip { padding: 4px 8px !important; font-size: 13px !important; }
 
   .ovl {
     display: flex;
@@ -147,12 +144,10 @@ button, [role="button"], a, input, select, textarea, .btn, .iconbtn, .hchip, .lc
   .listening-session-head { flex-wrap: wrap; }
 }
 
-/* Very narrow phones. The nine destinations live in the drawer now, so the only
-   thing that has to keep fitting is the header row. */
+/* Keep the chips usable when the controls wrap on very narrow phones. */
 @media (max-width: 360px) {
-  header { gap: 5px; padding: 5px 8px 6px; }
-  header .hchip { min-height: 34px; padding: 5px 8px; font-size: 12px; }
-  header > .iconbtn { width: 34px !important; height: 34px !important; }
+  header { padding-block: 5px 6px; }
+  header .hgroup .hchip { min-height: 34px; font-size: 12px; }
 }
 
 /* Landscape phones are short, not narrow: the vertical budget is the scarce one. */

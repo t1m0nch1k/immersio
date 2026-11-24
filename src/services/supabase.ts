@@ -35,7 +35,9 @@ let clientPromise: Promise<SupabaseClient | null> | null = null;
  */
 const readEnv = (): SupabaseConfig | null => {
   const env: Partial<ImportMetaEnv> = import.meta.env ?? {};
-  const url = env.VITE_SUPABASE_URL?.trim();
+  // The dashboard also exposes a REST endpoint. The SDK needs the project root
+  // to build both its REST and Auth URLs.
+  const url = env.VITE_SUPABASE_URL?.trim().replace(/\/rest\/v1\/?$/, '');
   const anonKey = env.VITE_SUPABASE_ANON_KEY?.trim();
   if (!url || !anonKey) return null;
   try {

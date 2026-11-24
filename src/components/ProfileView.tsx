@@ -503,6 +503,63 @@ const AppUpdateCard = React.memo<{ onCheckUpdates?: () => void }>(({ onCheckUpda
 });
 AppUpdateCard.displayName = 'AppUpdateCard';
 
+const ProgressImportCard: React.FC<{ onRestore: (state: UserState) => void }> = ({ onRestore }) => {
+  const [busy, setBusy] = React.useState(false);
+  const [message, setMessage] = React.useState('');
+
+  const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+
+    setMessage('');
+    setBusy(true);
+    try {
+      let backup: UserState;
+      try {
+        backup = StorageService.parseProgressBackup(await file.text());
+      } catch {
+        setMessage('Не удалось прочитать копию прогресса. Выберите JSON-файл «Погружения».');
+        return;
+      }
+
+      const cloudWarning = StorageService.load().account.isAuth
+        ? ' Если включена облачная синхронизация, прогресс может обновиться и на других устройствах.'
+        : '';
+      if (!window.confirm(`Заменить текущий прогресс копией с ${backup.xp} XP?${cloudWarning}`)) return;
+
+      let restored: UserState;
+      try {
+        restored = StorageService.restoreProgress(backup);
+      } catch {
+        setMessage('Не удалось сохранить прогресс на этом устройстве.');
+        return;
+      }
+      onRestore(restored);
+      setMessage(`Прогресс восстановлен · ${restored.xp} XP`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card" style={{ marginTop: '16px' }}>
+      <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Перенос прогресса</h3>
+      <label className="btn small">
+        Импортировать прогресс
+        <input
+          className="visually-hidden"
+          type="file"
+          accept=".json,application/json"
+          disabled={busy}
+          onChange={handleFile}
+        />
+      </label>
+      {message && <p role="status" style={{ marginTop: '8px' }}>{message}</p>}
+    </section>
+  );
+};
+
 export const ProfileView: React.FC<ProfileViewProps> = ({
   userState,
   onUpdateState,
@@ -653,6 +710,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </div>
       </div>
+
+      <ProgressImportCard onRestore={onUpdateState} />
 
       <SyncPanel
         email={userState.account.email}

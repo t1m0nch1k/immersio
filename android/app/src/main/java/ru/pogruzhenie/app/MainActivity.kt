@@ -420,7 +420,7 @@ class MainActivity : ComponentActivity() {
      *
      * A Custom Tab is a browser window inside our own task, so the redirect to
      * our scheme comes back to this activity instead of leaving the app for a
-     * browser that has no handler for `ru.pogruzhenie.app`. Falls back to the
+     * browser that has no handler for the app's callback scheme. Falls back to the
      * system browser, which is still better than the WebView: the user can at
      * least complete the flow, and the redirect will fail loudly rather than
      * silently.
@@ -450,7 +450,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val data = intent.data ?: return
-        if (data.scheme != authScheme || data.host != authHost) return
+        if (data.scheme != packageName || data.host != authHost) return
         Log.i(TAG, "OAuth redirect received")
         deliverAuthResult(data.toString())
     }
@@ -490,7 +490,7 @@ class MainActivity : ComponentActivity() {
     /** Consumes `intent.data` when the app was started by the redirect itself. */
     private fun captureAuthResult(intent: Intent?) {
         val data = intent?.data ?: return
-        if (data.scheme != authScheme || data.host != authHost) return
+        if (data.scheme != packageName || data.host != authHost) return
         Log.i(TAG, "OAuth redirect received on cold start")
         pendingAuthResult = data.toString()
         pendingAuthDelivered = false
@@ -729,6 +729,9 @@ class MainActivity : ComponentActivity() {
         }
 
         @JavascriptInterface
+        fun getAuthRedirectUri(): String = "$packageName://$authHost"
+
+        @JavascriptInterface
         fun getAppInfo(): String {
             val pInfo = packageManager.getPackageInfo(packageName, 0)
             val nativeVersion = pInfo.versionName ?: "0.1.0"
@@ -872,7 +875,7 @@ class MainActivity : ComponentActivity() {
                         try {
                             val apkUri = FileProvider.getUriForFile(
                                 this@MainActivity,
-                                "ru.pogruzhenie.app.fileprovider",
+                                "$packageName.fileprovider",
                                 apkFile
                             )
                             val installIntent = Intent(Intent.ACTION_VIEW).apply {
@@ -1076,8 +1079,7 @@ class MainActivity : ComponentActivity() {
         const val TAG = "Pogruzhenie"
         const val FILE_CHOOSER_REQUEST = 4711
 
-        /** Must match `redirectTo` in `src/services/supabaseAuth.ts`. */
-        const val authScheme = "ru.pogruzhenie.app"
+        /** Must match the callback host in the manifest. */
         const val authHost = "auth-callback"
 
         /** Global the bundle installs to receive the redirect URL. */

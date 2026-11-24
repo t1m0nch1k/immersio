@@ -7,6 +7,7 @@ import { LANGUAGE_CODES } from '../utils';
 import { isAvatarPhoto } from '../utils/avatar';
 import { Route } from '../routes';
 import { Icon } from './icons';
+import { BrandMark } from './BrandMark';
 
 interface HeaderProps {
   userState: UserState;
@@ -115,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
         style={{ background: 'none', border: 0, color: 'inherit' }}
       >
         <span className="mark" aria-hidden="true">
-          <Icon name="waves" strokeWidth={2.5} />
+          <BrandMark />
         </span>
         <span className="logotext">
           ПОГРУЖЕНИЕ
@@ -130,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
       */}
       <div className="hgroup">
         {/* Language picker button */}
-        <div style={{ position: 'relative' }} ref={langPickerRef}>
+        <div className="header-language" ref={langPickerRef}>
         <button
           ref={langButtonRef}
           type="button"
